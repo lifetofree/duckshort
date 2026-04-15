@@ -11,3 +11,5 @@ worker-configuration.d.ts
 backups/
 
 .claude/
+
+*.local
