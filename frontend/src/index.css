@@ -1,75 +1,162 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@theme {
+  --color-cyan-500: #00F2FF;
+  --color-magenta-500: #FF0055;
+  --color-purple-500: #bf00ff;
+  --color-success: #00ff88;
+  --color-error: #ff3366;
+
+  --color-bg-primary: #0B0E14;
+  --color-bg-secondary: #101520;
+  --color-bg-tertiary: #141A24;
+}
 
 :root {
-  --primary: #81ecff;
-  --primary-dark: #005762;
-  --accent: #ff7076;
-  --background: #000f14;
-  --surface: #0e141a;
-  --surface-elevated: #131a21;
-  --border: #43494f;
-  --text-muted: rgba(112, 118, 125, 0.41);
-  --text-dim: #70767d;
+  --bg-primary: #0B0E14;
+  --bg-secondary: #101520;
+  --bg-tertiary: #141A24;
+  --neon-cyan: #00F2FF;
+  --neon-magenta: #FF0055;
+  --neon-purple: #bf00ff;
+  --text-primary: #E8E8EC;
+  --text-secondary: #5A6070;
+  --error: #ff3366;
+  --success: #00ff88;
 }
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  font-family: 'Space Grotesk', Helvetica, sans-serif;
-  background-color: var(--background);
-  color: #eff4fc;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   min-height: 100vh;
-  overflow-x: hidden;
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
-#root {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+/* Subtle cyan text glow — not overpowering */
+.neon-glow-cyan {
+  text-shadow: 0 0 6px rgba(0, 242, 255, 0.6), 0 0 14px rgba(0, 242, 255, 0.25);
 }
 
-/* Background */
-.bg-overlay {
-  position: fixed;
-  inset: 0;
-  opacity: 0.2;
-  background-image: url('https://c.animaapp.com/mmy8mrc0OeogLg/img/cyberpunk-background---cover-art.png');
-  background-size: cover;
-  background-position: 50% 50%;
-  z-index: 0;
-  pointer-events: none;
+/* Subtle magenta text glow */
+.neon-glow-magenta {
+  text-shadow: 0 0 8px rgba(255, 0, 85, 0.5), 0 0 18px rgba(255, 0, 85, 0.2);
 }
 
+/* Bright cyan ring — used on modals */
+.neon-border-cyan {
+  border: 1px solid var(--neon-cyan);
+  box-shadow: 0 0 8px rgba(0, 242, 255, 0.25), inset 0 0 8px rgba(0, 242, 255, 0.06);
+}
+
+.neon-border-magenta {
+  border: 1px solid var(--neon-magenta);
+  box-shadow: 0 0 8px rgba(255, 0, 85, 0.25), inset 0 0 8px rgba(255, 0, 85, 0.06);
+}
+
+/* Solid hot-pink button matching the design */
+.btn-neon {
+  background: var(--neon-magenta);
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(255, 0, 85, 0.35);
+  transition: all 0.25s ease;
+}
+
+.btn-neon:hover {
+  box-shadow: 0 4px 28px rgba(255, 0, 85, 0.55), 0 0 12px rgba(255, 0, 85, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-neon:active {
+  transform: translateY(0);
+}
+
+/* Card — semi-transparent dark panel with subtle thin border */
+.glass-card {
+  background: rgba(14, 18, 26, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 242, 255, 0.12);
+}
+
+/* Brighter card variant for modals */
+.glass-card-neon {
+  background: rgba(14, 18, 26, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 242, 255, 0.25);
+  box-shadow: 0 0 24px rgba(0, 242, 255, 0.12), 0 0 48px rgba(0, 242, 255, 0.06);
+}
+
+/* Input fields — dark bg, thin dim cyan border */
+.input-neon {
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(0, 242, 255, 0.18);
+  color: var(--text-primary);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.input-neon:focus {
+  outline: none;
+  border-color: rgba(0, 242, 255, 0.5);
+  box-shadow: 0 0 8px rgba(0, 242, 255, 0.2);
+}
+
+.input-neon::placeholder {
+  color: var(--text-secondary);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.modal-overlay {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modal-content {
+  animation: slideUp 0.3s ease-out;
+}
+
+.pulse-animation {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--surface);
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: rgba(0, 242, 255, 0.3);
+  border-radius: 3px;
 }
 
-::selection {
-  background: var(--primary);
-  color: var(--primary-dark);
-}
-
-*:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 242, 255, 0.5);
 }

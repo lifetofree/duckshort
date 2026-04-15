@@ -1,34 +1,41 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { serveStatic } from 'hono/cloudflare-workers'
 import type { Env } from './types'
 
-import { getLinks, createLink, deleteLink } from './handlers/admin'
+import { getLinks, createLink, updateLink, deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant } from './handlers/admin'
 import { redirectLink } from './handlers/redirect'
-import { getStats } from './handlers/stats'
-import Home from './ui/pages/Home'
-import Admin from './ui/pages/Admin'
-import NotFound from './ui/pages/NotFound'
+import { getStats, getGlobalStats } from './handlers/stats'
+import { previewLink } from './handlers/preview'
+import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
 
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
-app.use('*', cors())
+app.use('*', cors({
+  origin: (origin) => origin ?? '*',
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+}))
 
-// Serve static assets from the frontend build
-app.get('/assets/*', serveStatic({ root: './frontend/dist' }))
-app.get('/favicon.svg', serveStatic({ root: './frontend/dist' }))
-app.get('/icons.svg', serveStatic({ root: './frontend/dist' }))
-
-app.get('/', (c) => c.html(<Home />))
-app.get('/admin', (c) => c.html(<Admin />))
-app.get('/:id', redirectLink)
+// API routes
+app.get('/api/stats/global', getGlobalStats)
 app.get('/api/stats/:id', getStats)
 app.get('/api/links', getLinks)
 app.post('/api/links', createLink)
+app.post('/api/links/bulk-delete', bulkDeleteLinks)
+app.patch('/api/links/:id', updateLink)
 app.delete('/api/links/:id', deleteLink)
+app.get('/api/links/:id/variants', getVariants)
+app.post('/api/links/:id/variants', createVariant)
+app.delete('/api/links/variants/:variantId', deleteVariant)
 
-app.notFound((c) => c.html(<NotFound />, 404))
+// Short link redirects
+app.get('/preview/:id', previewLink)
+app.get('/password/:id', showPasswordEntry)
+app.post('/password/:id', verifyPasswordEntry)
+app.get('/:id', redirectLink)
+
+app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
 export default app
