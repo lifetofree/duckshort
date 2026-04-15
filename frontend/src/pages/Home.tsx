@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
-import logo from '../assets/logo2.png'
+import logo from '../assets/logo.png'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
