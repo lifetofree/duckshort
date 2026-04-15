@@ -7,10 +7,6 @@ compatibility_flags = ["nodejs_compat"]
 port = 8787
 local_protocol = "http"
 
-[dev.vars]
-ADMIN_SECRET = "dev-secret"
-BASE_URL = "http://localhost:8787"
-
 [[d1_databases]]
 binding = "DB"
 database_name = "duckshort-db"
