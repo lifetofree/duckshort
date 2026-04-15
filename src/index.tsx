@@ -36,9 +36,28 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - API info (redirect to frontend UI)
+// Root route - Serve frontend HTML
 app.get('/', (c) => {
-  return c.redirect('https://40aca286.duckshort.pages.dev/')
+  return c.html(`
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="DuckShort — Lightning-fast URL shortening at the Neon Pond" />
+    <title>DuckShort | The Neon Pond</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script type="module" crossorigin src="https://3f518a8c.duckshort.pages.dev/assets/index-EyEACPkb.js"></script>
+    <link rel="stylesheet" crossorigin href="https://3f518a8c.duckshort.pages.dev/assets/index-DElTtuHV.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+  `)
 })
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
