@@ -1,4 +1,4 @@
-import { Html, Head, Body, Scripts } from 'hono/html'
+/** @jsxImportSource hono/jsx */
 
 interface Props {
   title: string
@@ -7,8 +7,8 @@ interface Props {
 
 export default function Layout({ title, children }: Props) {
   return (
-    <Html lang="en">
-      <Head>
+    <html lang="en">
+      <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title}</title>
@@ -41,11 +41,10 @@ export default function Layout({ title, children }: Props) {
             background-size: 50px 50px;
           }
         `}</style>
-      </Head>
-      <Body class="grid-bg">
+      </head>
+      <body class="grid-bg">
         {children}
-        <Scripts />
-      </Body>
-    </Html>
+      </body>
+    </html>
   )
 }
