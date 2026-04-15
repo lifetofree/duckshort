@@ -1,4 +1,4 @@
-name: Deploy Cloudflare Worker
+name: Deploy Worker
 
 on:
   push:
@@ -11,8 +11,15 @@ on:
       - 'package-lock.json'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
 jobs:
-  deploy-worker:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,7 +38,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Run tests
+      - name: Test
         run: npm run test
 
       - name: Apply D1 migrations
@@ -42,7 +49,7 @@ jobs:
           command: d1 migrations apply duckshort-db --remote --yes
           wranglerVersion: '4.83.0'
 
-      - name: Deploy to Cloudflare Workers
+      - name: Deploy
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}

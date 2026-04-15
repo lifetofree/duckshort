@@ -1,43 +1,70 @@
 # DuckShort: Cyber-Duck URL Shortener
 
-DuckShort is a high-performance, edge-native URL shortener with a "Synthwave Mallard" aesthetic. It's built for the modern web using Cloudflare's serverless ecosystem.
+DuckShort is a high-performance, edge-native URL shortener with a "Synthwave Mallard" aesthetic. Built on Cloudflare's serverless ecosystem with a neon-futuristic UI.
 
-## 🚀 Mission
+## Mission
 Provide lightning-fast redirects and secure link management with a visually striking, neon-futuristic user experience.
 
-## 🏗 Core Architecture
+## Core Architecture
 - **Backend:** Hono.js on Cloudflare Workers (edge computing, sub-10ms cold starts)
 - **Frontend:** React 18 SPA on Cloudflare Pages (separate deployment)
 - **Database:** Cloudflare D1 (distributed SQLite)
-- **ID Generation:** NanoID (8-character Base62, collision-resistant)
+- **ID Generation:** NanoID (8-character Base62, 62^8 = ~218 trillion combinations)
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Hono.js 4 on Cloudflare Workers |
-| Frontend | React 18 (TypeScript), Vite 5, React Router v6, TanStack Query v5, Tailwind CSS v3 |
-| Frontend extras | qrcode.react, lucide-react, react-markdown, DOMPurify, recharts, react-i18next |
+| Backend | Hono.js 4, Cloudflare Workers, TypeScript |
+| Frontend | React 18, Vite 5, React Router v6, TailwindCSS v4 + @tailwindcss/vite |
+| Animations | motion (Framer Motion v12) via `motion/react` |
+| UI Extras | qrcode.react, lucide-react, DOMPurify |
+| Installed but unused | @tanstack/react-query, recharts, react-i18next, i18next, react-markdown, react-quill |
 | Database | Cloudflare D1 (SQLite) |
 | Testing | Vitest — backend via `@cloudflare/vitest-pool-workers`, frontend via jsdom + @testing-library/react |
 | Deployment | Cloudflare Workers (backend) + Cloudflare Pages (frontend) |
+| CI/CD | GitHub Actions — two workflows (deploy-worker, deploy-frontend) |
 
-## 🎨 Branding & Theme: "The Neon Pond"
-- **Color Palette:** `#0B0E14` background, `#00F2FF` cyan accents, `#FF0055` neon-red actions
-- **Typography:** *Orbitron* for headings, *JetBrains Mono* for data
-- **Asset:** `frontend/src/assets/logo.png` — duck mascot used in both frontend and SSR pages
+## Branding & Theme: "The Neon Pond"
 
-## 🔒 Security Model
+**Title:** DuckShort | The Neon Pond
+
+**Color Palette (CSS variables in `frontend/src/index.css`):**
+- `--bg-primary: #0a0a0f` — main background
+- `--bg-secondary: #12121a` — card background
+- `--bg-tertiary: #1a1a25` — input background
+- `--neon-cyan: #00f5ff` — primary accent
+- `--neon-magenta: #ff00ff` — action/button color
+- `--neon-purple: #bf00ff` — secondary accent
+- `--text-primary: #ffffff`
+- `--text-secondary: #a0a0b0`
+
+**Tailwind v4 theme tokens** (in `@theme` block):
+- `--color-cyan-500`, `--color-magenta-500`, `--color-bg-primary`, etc.
+
+**Typography:** Orbitron (headings, buttons) + JetBrains Mono (data, inputs, body) loaded via `<link>` in `index.html`
+
+**Utility Classes:**
+- `.glass-card` — glassmorphic dark panel
+- `.glass-card-neon` — high-intensity neon border panel
+- `.input-neon` — dark input, cyan border on focus
+- `.btn-neon` — cyan→magenta gradient button with glow
+- `.neon-glow-cyan` / `.neon-glow-magenta` — text shadow utilities
+- `.neon-border-cyan` / `.neon-border-magenta` — box shadow utilities
+
+**Asset:** `frontend/src/assets/logo.png` — duck mascot, displayed circular in the header
+
+## Security Model
 - **Bearer Token Auth:** All admin endpoints require `Authorization: Bearer <ADMIN_SECRET>`. Checked via `requireAuth()` in `src/lib/auth.ts`.
 - **Timing-Safe Comparison:** `crypto.subtle.timingSafeEqual` (Web Crypto API) prevents timing-based secret inference.
-- **Password Hashing:** Link passwords hashed with SHA-256 via Web Crypto (`hashPassword` / `verifyPassword` in `src/lib/auth.ts`). bcrypt is unavailable in the Workers runtime.
+- **Password Hashing:** Link passwords hashed with SHA-256 via Web Crypto (`hashPassword` / `verifyPassword`). bcrypt unavailable in Workers runtime.
 - **Enumeration Prevention:** NanoID Base62 prevents sequential guessing.
 - **Analytics Safety:** User-Agent and Referer headers truncated to 255 chars before storage.
-- **Dev Secret:** `ADMIN_SECRET = "dev-secret"` in `wrangler.toml [vars]` for local dev. Override with `.dev.vars`.
+- **Secrets Management:** `ADMIN_SECRET` stored as an encrypted Cloudflare secret (`wrangler secret put ADMIN_SECRET`), never in `wrangler.toml`.
 
-## 📅 Feature Roadmap
+## Feature Roadmap
 
-### ✅ Implemented
+### Implemented
 - [x] **Link Generation:** NanoID-based URL shortening, D1 storage
 - [x] **Redirection:** `/:id` with 302 redirect, 404/410 for missing/expired links
 - [x] **Link Expiration:** `expires_at` column; expired links auto-disabled on redirect
@@ -45,37 +72,40 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Expiry Extension:** `PATCH /api/links/:id` with `action: "extend"` and `extendHours`
 - [x] **Bulk Delete:** `POST /api/links/bulk-delete` with `{ ids: string[] }`
 - [x] **Link Tags:** `tag` column for campaign grouping
-- [x] **UTM Parameter Injection:** `utm_source/medium/campaign` appended to destination URL on redirect
-- [x] **Webhook on Click:** `webhook_url` column; async POST fired via `waitUntil` on each redirect
+- [x] **UTM Parameter Injection:** `utm_source/medium/campaign` appended on redirect
+- [x] **Webhook on Click:** `webhook_url`; async POST fired via `waitUntil` on each redirect
 - [x] **A/B Link Rotation:** `link_variants` table with weighted random destination selection
-- [x] **Password-Protected Links:** `password_hash` column (SHA-256); redirects to `/password/:id` interstitial
-- [x] **Click-through Preview:** `GET /preview/:id` branded interstitial showing destination before redirect
-- [x] **Stats API:** Per-link visits, top countries, top referrers (`GET /api/stats/:id`)
+- [x] **Password-Protected Links:** `password_hash` (SHA-256); redirects to `/password/:id` interstitial
+- [x] **Click-through Preview:** `GET /preview/:id` branded interstitial before redirect
+- [x] **Stats API:** Per-link visits, top 10 countries, top 10 referrers (`GET /api/stats/:id`)
 - [x] **Global Quack Counter:** `GET /api/stats/global` — total visits, hourly visits, duck mood
 - [x] **Duck Mood Indicator:** `DORMANT` / `ACTIVE` / `BUSY` / `VIRAL` based on hourly visit count
-- [x] **QR Code in Modal:** `qrcode.react` renders QR for every created short URL
-- [x] **Timing-Safe Auth:** `requireAuth()` is async and properly awaits `timingSafeEqual`
+- [x] **QR Code Modal:** `qrcode.react` renders QR for every created short URL + copy to clipboard
+- [x] **Timing-Safe Auth:** `requireAuth()` awaits `timingSafeEqual` properly
 - [x] **Analytics Timestamp:** `analytics.timestamp` column with index for time-based queries
-- [x] **Vitest — Backend:** Workers pool tests in `test/` covering auth, nanoid, redirect, admin, stats
-- [x] **Vitest — Frontend:** jsdom + @testing-library/react tests in `frontend/src/__tests__/`
+- [x] **Vitest — Backend:** Workers pool tests covering auth, nanoid, redirect, admin, stats
+- [x] **Vitest — Frontend:** jsdom + @testing-library/react tests
 - [x] **Pages Deployment:** `_redirects` + `_headers` in `frontend/public/` for SPA routing and security headers
 - [x] **Observability:** `wrangler.toml` sets `observability.enabled = true`
+- [x] **CI/CD Pipelines:** GitHub Actions workflows for Worker and Pages deployment
+- [x] **Encrypted Secrets:** `ADMIN_SECRET` stored via `wrangler secret put`, not in repo
 
-### ❌ Not Yet Implemented
-- [ ] **Admin React Page:** `/admin` route exists in React Router but has no component yet (SSR placeholder at `src/ui/pages/Admin.tsx` still referenced)
-- [ ] **Visit Sparkline:** 7-day per-link sparkline data available from `GET /api/links` but not rendered in UI
-- [ ] **Bulk Export CSV:** API supports bulk delete but CSV export is client-side only — not yet wired up
-- [ ] **Custom Domains:** Per-link vanity domain support (no `custom_domain` column or route matching)
+### Not Yet Implemented
+- [ ] **Admin React Page:** `/admin` route exists in React Router but no component (SSR placeholder only)
+- [ ] **View Stats Tab:** Stats tab in Home.tsx is currently hidden (state + API intact, UI hidden)
+- [ ] **Visit Sparkline UI:** 7-day per-link sparkline data available from `GET /api/links` but not rendered
+- [ ] **Bulk Export CSV:** Not yet wired up
+- [ ] **Custom Domains:** No `custom_domain` column or route matching
 - [ ] **Rate Limiting:** No per-IP throttle on link creation
-- [ ] **Scheduled Cleanup:** No Cron Trigger to hard-delete expired links from D1
-- [ ] **Admin Search/Filter:** No search or sort on the admin links table
+- [ ] **Scheduled Cleanup:** No Cron Trigger to hard-delete expired links
 
-## 🏃 Running Locally
+## Running Locally
 
 ### Start Backend (API + redirects)
 ```bash
 npm run dev
 # Runs on http://localhost:8787
+# Reads secrets from .dev.vars (not committed)
 ```
 
 ### Start Frontend (React SPA)
@@ -86,12 +116,19 @@ cd frontend && npm run dev
 ```
 
 ### Environment Files
-- **Backend:** `wrangler.toml [vars]` sets `ADMIN_SECRET = "dev-secret"` and `BASE_URL = "http://localhost:8787"`. Override sensitive values with `.dev.vars`.
-- **Frontend:** `frontend/.env.local` (or `.env`) must contain:
-  ```
-  VITE_API_URL=http://localhost:8787
-  VITE_ADMIN_SECRET=dev-secret
-  ```
+
+**Backend** — `.dev.vars` (gitignored, at project root):
+```
+ADMIN_SECRET=dev-secret
+BASE_URL=http://localhost:8787
+```
+
+**Frontend** — leave `VITE_API_URL` empty so requests go through the Vite proxy:
+```
+# frontend/.env.local  (gitignored via *.local)
+VITE_API_URL=
+VITE_ADMIN_SECRET=dev-secret
+```
 
 ### Running Tests
 ```bash
@@ -102,86 +139,88 @@ npm run test
 cd frontend && npm run test
 ```
 
-## 🌐 Deployment
+## Deployment
 
-Two separate deployments — backend and frontend are independent.
+Two independent deployments triggered by GitHub Actions on push to `main`.
 
-### Backend (Cloudflare Worker)
+### Required GitHub Secrets
+| Secret | Value |
+|--------|-------|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token (Edit Workers permission) |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
+| `VITE_API_URL` | `https://duckshort.cc` (worker URL for frontend build) |
+| `VITE_ADMIN_SECRET` | Same value as `ADMIN_SECRET` Cloudflare secret |
+
+### First-time Setup
 ```bash
-# Apply D1 migrations first
-wrangler d1 migrations apply duckshort-db --remote
-
-# Deploy Worker
-npm run deploy
-
-# Set production secrets
+# Set encrypted production secret (run once)
 wrangler secret put ADMIN_SECRET
-wrangler secret put BASE_URL   # e.g. https://go.yourdomain.com
+
+# Apply D1 schema (run once, then CI handles it)
+wrangler d1 migrations apply duckshort-db --remote --yes
 ```
 
-### Frontend (Cloudflare Pages)
+### Manual Deploy (without CI)
 ```bash
+# Backend
+npm run deploy
+
+# Frontend
 cd frontend && npm run build
 wrangler pages deploy dist --project-name=duckshort --branch main
 ```
-Set `VITE_API_URL` and `VITE_ADMIN_SECRET` as environment variables in the Pages dashboard or via the deploy workflow.
 
-## 📁 Project Structure
+## Project Structure
 ```
 DuckShort/
 ├── src/                              # Backend — Cloudflare Worker (Hono.js)
+│   ├── index.tsx                     # Entry point — all route registration (14 routes)
+│   ├── types.ts                      # Env interface: DB, ADMIN_SECRET, BASE_URL
 │   ├── handlers/
 │   │   ├── admin.ts                  # getLinks, createLink, updateLink, deleteLink,
 │   │   │                             #   bulkDeleteLinks, getVariants, createVariant, deleteVariant
-│   │   ├── password.ts               # showPasswordEntry, verifyPasswordEntry
-│   │   ├── preview.ts                # previewLink (click-through interstitial)
+│   │   ├── password.tsx              # showPasswordEntry, verifyPasswordEntry (SSR)
+│   │   ├── preview.tsx               # previewLink (click-through interstitial, SSR)
 │   │   ├── redirect.ts               # redirectLink (302 + UTM + A/B + webhook + analytics)
-│   │   └── stats.ts                  # getStats, getGlobalStats
+│   │   └── stats.ts                  # getStats, getGlobalStats (with duck mood)
 │   ├── lib/
 │   │   ├── auth.ts                   # timingSafeEqual, requireAuth, hashPassword, verifyPassword
-│   │   └── nanoid.ts                 # generateId (8-char Base62)
-│   ├── ui/                           # Hono/JSX SSR pages (interstitials only)
-│   │   ├── pages/
-│   │   │   ├── Admin.tsx             # Legacy SSR admin shell (references /assets/admin.js)
-│   │   │   ├── Home.tsx              # Legacy SSR home shell (references /assets/index.js)
-│   │   │   └── NotFound.tsx          # 404 page
-│   │   ├── config.json
-│   │   └── Layout.tsx                # Shared HTML shell (Orbitron + JetBrains Mono fonts)
-│   ├── types.ts                      # Shared `Env` interface (DB, ADMIN_SECRET, BASE_URL)
-│   └── index.tsx                     # Worker entry point — all route registration
+│   │   └── nanoid.ts                 # generateId — 8-char Base62 via nanoid
+│   └── ui/                           # Hono/JSX SSR pages (interstitials only)
+│       ├── Layout.tsx
+│       ├── config.json
+│       └── pages/
+│           ├── PasswordEntry.tsx
+│           └── Preview.tsx
 │
-├── frontend/                         # Frontend — Cloudflare Pages (React SPA)
+├── frontend/                         # Frontend — Cloudflare Pages (React 18 SPA)
 │   ├── public/
+│   │   ├── favicon.svg               # Neon duck SVG favicon
 │   │   ├── _redirects                # /* → /index.html 200 (SPA fallback)
 │   │   └── _headers                  # Security headers + asset caching
 │   ├── src/
-│   │   ├── __tests__/
-│   │   │   ├── App.test.tsx          # Route rendering tests
-│   │   │   └── Home.test.tsx         # HomePage unit tests (fetch mock)
-│   │   ├── assets/
-│   │   │   └── logo.png              # Duck mascot
-│   │   ├── components/               # Legacy JSX components (pre-TypeScript)
-│   │   │   ├── Modal.jsx
-│   │   │   ├── URLShortenerForm.jsx
-│   │   │   └── URLShortenerForm.tsx
+│   │   ├── main.tsx                  # ReactDOM root + BrowserRouter + QueryClientProvider
+│   │   ├── App.tsx                   # Router: / → Home, * → 404
+│   │   ├── index.css                 # Tailwind v4 + neon CSS variables + utility classes
 │   │   ├── pages/
 │   │   │   └── Home.tsx              # URL shortener form + QR modal + quack counter
-│   │   ├── screens/                  # Design reference assets (not deployed)
-│   │   ├── test/
-│   │   │   └── setup.ts              # @testing-library/jest-dom import
-│   │   ├── App.tsx                   # Router: / → Home, /admin → Admin (pending), * → 404
-│   │   ├── index.css
-│   │   └── main.tsx                  # ReactDOM root + BrowserRouter + QueryClientProvider
-│   ├── index.html
-│   ├── package.json
-│   ├── postcss.config.js
-│   ├── tailwind.config.js
-│   ├── tsconfig.json
-│   ├── tsconfig.node.json
-│   └── vite.config.ts                # Vite + dev proxy + Vitest (jsdom) config
+│   │   ├── components/
+│   │   │   └── DuckLogo.tsx          # Neon SVG duck logo component
+│   │   ├── lib/
+│   │   │   └── utils.ts              # cn() class merge helper
+│   │   ├── assets/
+│   │   │   └── logo.png              # Duck mascot (circular in header)
+│   │   └── __tests__/
+│   │       ├── App.test.tsx
+│   │       └── Home.test.tsx
+│   ├── index.html                    # Loads Orbitron + JetBrains Mono via Google Fonts
+│   ├── vite.config.ts                # Tailwind v4 plugin + dev proxy + vitest config
+│   ├── tailwind.config.js            # Legacy (unused by Tailwind v4, kept for reference)
+│   ├── postcss.config.js             # autoprefixer only (tailwindcss removed, handled by Vite)
+│   └── package.json
 │
 ├── migrations/
-│   ├── 0001_initial.sql              # links + analytics tables + all base indexes
+│   ├── 0001_initial.sql              # links + analytics tables + indexes
 │   └── 0002_feature_columns.sql      # password_hash, tag, utm_*, webhook_url,
 │                                     #   analytics.timestamp, link_variants table
 │
@@ -194,18 +233,74 @@ DuckShort/
 │       ├── auth.test.ts
 │       └── nanoid.test.ts
 │
-├── .github/
-│   └── workflows/
-│       ├── deploy-worker.yml         # CI: typecheck → test → migrate → deploy Worker
-│       ├── deploy-frontend.yml       # CI: lint → typecheck → test → build → deploy Pages
-│       └── deploy-all.yml
+├── .github/workflows/
+│   ├── deploy-worker.yml             # typecheck → test → migrate (--yes) → deploy
+│   └── deploy-frontend.yml           # typecheck → test → build → pages deploy
 │
-├── .dev.vars                         # Local secrets (not committed)
-├── package.json                      # Backend deps + test/deploy scripts
-├── tsconfig.json                     # Backend TS config (Workers types, hono/jsx)
+├── scripts/                          # DB backup/restore helpers
+│   ├── db-backup.sh
+│   ├── db-compare.sh
+│   └── db-restore.sh
+│
+├── .dev.vars                         # Local secrets — gitignored
+├── package.json                      # Backend deps + scripts (wrangler ^3, hono ^4, nanoid ^5)
+├── tsconfig.json                     # Backend TS config
 ├── vitest.config.ts                  # @cloudflare/vitest-pool-workers config
-├── wrangler.toml                     # Worker config (D1 binding, vars, observability)
+├── wrangler.toml                     # Worker config: name, D1, vars (BASE_URL), observability
 ├── AGENTS.MD                         # This file
-├── BACKLOGS.md                       # Feature gaps and improvement backlog
-└── ISSUETOFIX.md                     # Known bugs and security issues
+├── BACKLOGS.md                       # Feature gaps
+└── ISSUETOFIX.md                     # Resolved bugs and security fixes
 ```
+
+## Database Schema
+
+### `links`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | 8-char Base62 NanoID |
+| original_url | TEXT NOT NULL | |
+| created_at | TEXT NOT NULL | ISO 8601 |
+| expires_at | TEXT | NULL = never |
+| disabled | INTEGER | 0/1 soft delete |
+| password_hash | TEXT | SHA-256 hex |
+| tag | TEXT | Campaign label |
+| utm_source | TEXT | |
+| utm_medium | TEXT | |
+| utm_campaign | TEXT | |
+| webhook_url | TEXT | POST on each click |
+
+### `analytics`
+| Column | Type | Notes |
+|--------|------|-------|
+| link_id | TEXT FK | → links(id) CASCADE |
+| country | TEXT | cf-ipcountry header |
+| referer | TEXT | Truncated 255 chars |
+| user_agent | TEXT | Truncated 255 chars |
+| timestamp | TEXT | datetime('now'), indexed |
+
+### `link_variants`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | 8-char Base62 |
+| link_id | TEXT FK | → links(id) CASCADE |
+| destination_url | TEXT NOT NULL | |
+| weight | INTEGER | Default 1 |
+
+## API Reference
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/stats/global` | — | Total visits, hourly count, duck mood |
+| GET | `/api/stats/:id` | — | Per-link stats (visits, countries, referrers) |
+| GET | `/api/links` | Bearer | All links with 7-day sparkline |
+| POST | `/api/links` | Bearer | Create short link |
+| POST | `/api/links/bulk-delete` | Bearer | Delete multiple links |
+| PATCH | `/api/links/:id` | Bearer | Toggle disable or extend expiry |
+| DELETE | `/api/links/:id` | Bearer | Delete link |
+| GET | `/api/links/:id/variants` | Bearer | List A/B variants |
+| POST | `/api/links/:id/variants` | Bearer | Add A/B variant |
+| DELETE | `/api/links/variants/:id` | Bearer | Delete variant |
+| GET | `/preview/:id` | — | Click-through preview interstitial |
+| GET | `/password/:id` | — | Password entry form |
+| POST | `/password/:id` | — | Verify password + redirect |
+| GET | `/:id` | — | Main redirect (302) |
