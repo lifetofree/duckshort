@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
+import { serveStatic } from 'hono/cloudflare-workers'
 import type { Env } from './types'
 
 import { getLinks, createLink, updateLink, deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant } from './handlers/admin'
@@ -17,6 +18,10 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
+
+// Serve static assets from frontend build
+app.use('/assets/*', serveStatic({ root: './' }))
+app.get('/favicon.ico', serveStatic({ path: './frontend/public/favicon.ico' }))
 
 // API routes
 app.get('/api/stats/global', getGlobalStats)
@@ -50,7 +55,7 @@ app.get('/', (c) => {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="https://7bbd87b8.duckshort.pages.dev/assets/index-CGNhwaA1.js"></script>
+    <script type="module" crossorigin src="https://7bbd87b8.duckshort.pages.dev/assets/index-DHxM7dsP.js"></script>
     <link rel="stylesheet" crossorigin href="https://7bbd87b8.duckshort.pages.dev/assets/index-DElTtuHV.css">
   </head>
   <body>
