@@ -4,8 +4,8 @@ compatibility_date = "2024-04-15"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "duckshort"
-database_id = "duckshort"
+database_name = "duckshort-db"
+database_id = "cbb432e6-7252-461d-83ff-d792be1413fb"
 
 [vars]
 ADMIN_SECRET = "dev-secret"
