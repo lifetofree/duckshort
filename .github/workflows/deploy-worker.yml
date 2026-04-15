@@ -18,6 +18,7 @@ jobs:
     name: Deploy Worker
     steps:
       - uses: actions/checkout@v4
+      
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -25,13 +26,14 @@ jobs:
           cache: 'npm'
       
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
       
-      - name: Install frontend dependencies and build
+      - name: Build Frontend
         run: |
           cd frontend
           npm install
           npm run build
+          ls -R dist # Debug: verify dist folder exists
       
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
