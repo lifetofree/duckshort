@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { serveStatic } from 'hono/cloudflare-workers'
 import type { Env } from './types'
 
 import { getLinks, createLink, updateLink, deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant } from './handlers/admin'
@@ -18,10 +17,6 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
-
-// Serve static assets from frontend build
-app.use('/assets/*', serveStatic({ root: './' }))
-app.get('/favicon.ico', serveStatic({ path: './frontend/public/favicon.ico' }))
 
 // API routes
 app.get('/api/stats/global', getGlobalStats)
@@ -48,15 +43,15 @@ app.get('/', (c) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="https://f7265b47.duckshort.pages.dev/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="DuckShort — Lightning-fast URL shortening at the Neon Pond" />
     <title>DuckShort | The Neon Pond</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="https://7bbd87b8.duckshort.pages.dev/assets/index-DHxM7dsP.js"></script>
-    <link rel="stylesheet" crossorigin href="https://7bbd87b8.duckshort.pages.dev/assets/index-DElTtuHV.css">
+    <script type="module" crossorigin src="https://f7265b47.duckshort.pages.dev/assets/index-DHxM7dsP.js"></script>
+    <link rel="stylesheet" crossorigin href="https://f7265b47.duckshort.pages.dev/assets/index-DElTtuHV.css">
   </head>
   <body>
     <div id="root"></div>
