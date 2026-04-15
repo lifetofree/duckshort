@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import HomePage from './pages/Home'
+import DevModeBar from './components/DevModeBar'
 
 function NotFound() {
   return (
@@ -16,6 +17,7 @@ function NotFound() {
       fontSize: '0.75rem',
       textTransform: 'uppercase',
       gap: '0.5rem',
+      paddingTop: import.meta.env.MODE === 'development' ? '5rem' : '0',
     }}>
       <span style={{ fontSize: '3rem', fontFamily: 'Orbitron, sans-serif', color: 'var(--neon-cyan)' }}>404</span>
       <span>PAGE NOT FOUND</span>
@@ -25,9 +27,12 @@ function NotFound() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <>
+      <DevModeBar />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   )
 }

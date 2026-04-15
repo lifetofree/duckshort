@@ -101,6 +101,7 @@ export default function HomePage() {
         justifyContent: 'center',
         padding: '3rem 1rem',
         background: 'var(--bg-primary)',
+        paddingTop: import.meta.env.MODE === 'development' ? '5rem' : '3rem',
       }}
     >
       {/* Header: Logo + Title + Tagline */}
