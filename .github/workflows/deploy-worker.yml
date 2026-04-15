@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'frontend/**'
       - 'wrangler.toml'
       - 'package.json'
       - 'package-lock.json'
@@ -22,8 +23,16 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
-      - name: Install dependencies
+      
+      - name: Install root dependencies
         run: npm ci
+      
+      - name: Install frontend dependencies and build
+        run: |
+          cd frontend
+          npm install
+          npm run build
+      
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
