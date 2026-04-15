@@ -2,6 +2,6 @@
 /* /index.html 200
 
 # API routes - proxy to Worker
-/api/* https://duckshort.cc/api/:splat 200
-/preview/* https://duckshort.cc/preview/:splat 200
-/password/* https://duckshort.cc/password/:splat 200
+/api/* https://duckshort.chonlaphon.workers.dev/api/:splat 200
+/preview/* https://duckshort.chonlaphon.workers.dev/preview/:splat 200
+/password/* https://duckshort.chonlaphon.workers.dev/password/:splat 200

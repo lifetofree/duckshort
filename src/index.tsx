@@ -36,18 +36,9 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - API info
+// Root route - API info (redirect to frontend UI)
 app.get('/', (c) => {
-  return c.json({
-    name: 'DuckShort API',
-    version: '1.0.0',
-    status: 'operational',
-    endpoints: {
-      stats: '/api/stats/global',
-      create: '/api/links',
-      redirect: '/:id'
-    }
-  })
+  return c.redirect('https://40aca286.duckshort.pages.dev/')
 })
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))

@@ -8,3 +8,5 @@ worker-configuration.d.ts
 *.log
 
 backups/
+
+.claude/
