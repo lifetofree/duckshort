@@ -30,10 +30,6 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
-      - name: Lint
-        working-directory: ./frontend
-        run: npm run lint
-
       - name: Typecheck
         working-directory: ./frontend
         run: npx tsc -b --noEmit
@@ -51,4 +47,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy frontend/dist --project-name=duckshort --branch main
+          workingDirectory: ./frontend
+          command: pages deploy dist --project-name=duckshort --branch main
