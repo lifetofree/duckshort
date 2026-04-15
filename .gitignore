@@ -13,3 +13,4 @@ backups/
 .claude/
 
 *.local
+*.tsbuildinfo
