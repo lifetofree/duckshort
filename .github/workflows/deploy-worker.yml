@@ -1,4 +1,5 @@
 name: Deploy Cloudflare Worker
+# Triggering deployment after secret setup
 
 on:
   push:
