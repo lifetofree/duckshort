@@ -1,31 +1,33 @@
 /** @jsxImportSource hono/jsx */
 import Layout from '../Layout'
+import config from '../config.json'
 
 export default function Home() {
+  const { home, theme } = config
   return (
-    <Layout title="DuckShort | The Neon Pond">
+    <Layout title={home.title}>
       <div class="container" style="text-align: center; padding-top: 4rem;">
         <DuckSvg />
-        <h1 style="font-size: 3rem; margin: 1rem 0; text-shadow: 0 0 20px #00F2FF;">
-          DuckShort
+        <h1 style={`font-size: 3rem; margin: 1rem 0; text-shadow: 0 0 20px ${theme.colors.primary};`}>
+          {home.heading}
         </h1>
         <p style="margin-bottom: 2rem; opacity: 0.8;">
-          Lightning-fast URL shortening at the Neon Pond
+          {home.subheading}
         </p>
 
         <form id="shorten-form" style="display: flex; gap: 0.5rem; justify-content: center; max-width: 500px; margin: 0 auto;">
           <input 
             type="url" 
             name="url" 
-            placeholder="Enter URL to shorten" 
+            placeholder={home.input_placeholder} 
             required
-            style="flex: 1; padding: 0.75rem; background: #1a1f2e; border: 1px solid #00F2FF; color: #00F2FF; border-radius: 4px; font-family: inherit;"
+            style={`flex: 1; padding: 0.75rem; background: ${theme.colors.card}; border: 1px solid ${theme.colors.primary}; color: ${theme.colors.primary}; border-radius: 4px; font-family: inherit;`}
           />
-          <button type="submit" class="btn">Shorten</button>
+          <button type="submit" class="btn">{home.button_text}</button>
         </form>
 
         <div id="result" style="margin-top: 1rem;"></div>
-        <div id="error" style="color: #FF0055; margin-top: 1rem;"></div>
+        <div id="error" style={`color: ${theme.colors.accent}; margin-top: 1rem;`}></div>
       </div>
 
       <script src="/assets/index.js"></script>

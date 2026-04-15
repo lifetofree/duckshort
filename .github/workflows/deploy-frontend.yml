@@ -1,9 +1,8 @@
-name: Deploy to Cloudflare Pages
+name: Deploy Frontend to Cloudflare Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'frontend/**'
   workflow_dispatch:
@@ -11,19 +10,41 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    name: Deploy Frontend to Pages
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Install dependencies and build
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Create .env file
         run: |
-          cd frontend
-          npm install
-          npm run build
+          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > frontend/.env
+          echo "VITE_ADMIN_SECRET=${{ secrets.VITE_ADMIN_SECRET }}" >> frontend/.env
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: ./frontend
+        run: npx tsc -b --noEmit
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy frontend/dist --project-name=duckshort
+          command: pages deploy frontend/dist --project-name=duckshort --branch main

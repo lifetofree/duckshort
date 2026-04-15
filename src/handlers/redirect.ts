@@ -1,15 +1,61 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
 
+interface LinkRow {
+  original_url: string
+  disabled: number
+  expires_at: string | null
+  password_hash: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  webhook_url: string | null
+}
+
+interface VariantRow {
+  destination_url: string
+  weight: number
+}
+
+function pickVariant(variants: VariantRow[]): string {
+  const totalWeight = variants.reduce((sum, v) => sum + v.weight, 0)
+  let random = Math.random() * totalWeight
+  for (const v of variants) {
+    random -= v.weight
+    if (random <= 0) return v.destination_url
+  }
+  return variants[variants.length - 1].destination_url
+}
+
+function injectUtm(
+  url: string,
+  source: string | null,
+  medium: string | null,
+  campaign: string | null
+): string {
+  if (!source && !medium && !campaign) return url
+  try {
+    const u = new URL(url)
+    if (source) u.searchParams.set('utm_source', source)
+    if (medium) u.searchParams.set('utm_medium', medium)
+    if (campaign) u.searchParams.set('utm_campaign', campaign)
+    return u.toString()
+  } catch {
+    return url
+  }
+}
+
 export async function redirectLink(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
 
   const link = await c.env.DB.prepare(
-    'SELECT original_url, disabled, expires_at FROM links WHERE id = ?'
-  ).bind(id).first()
+    `SELECT original_url, disabled, expires_at, password_hash,
+            utm_source, utm_medium, utm_campaign, webhook_url
+     FROM links WHERE id = ?`
+  ).bind(id).first<LinkRow>()
 
   if (!link || link.disabled) {
-    return c.html('<h1>Link not found or expired</h1>', 404)
+    return c.html('<h1>Link not found or disabled</h1>', 404)
   }
 
   if (link.expires_at && new Date(link.expires_at) < new Date()) {
@@ -17,15 +63,47 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
     return c.html('<h1>Link expired</h1>', 410)
   }
 
+  // Password-protected: redirect to entry page
+  if (link.password_hash) {
+    return c.redirect(`/password/${id}`, 302)
+  }
+
+  // Determine destination URL (A/B variants take priority)
+  const variantsResult = await c.env.DB.prepare(
+    'SELECT destination_url, weight FROM link_variants WHERE link_id = ?'
+  ).bind(id).all<VariantRow>()
+
+  let destination = link.original_url
+  if (variantsResult.results.length > 0) {
+    destination = pickVariant(variantsResult.results)
+  }
+
+  destination = injectUtm(destination, link.utm_source, link.utm_medium, link.utm_campaign)
+
   const country = c.req.header('cf-ipcountry') || 'unknown'
   const referer = (c.req.header('referer') || 'unknown').slice(0, 255)
   const ua = (c.req.header('user-agent') || 'unknown').slice(0, 255)
+  const timestamp = new Date().toISOString()
 
   c.executionCtx.waitUntil(
-    c.env.DB.prepare(
-      'INSERT INTO analytics (link_id, country, referer, user_agent) VALUES (?, ?, ?, ?)'
-    ).bind(id, country, referer, ua).run()
+    (async () => {
+      await c.env.DB.prepare(
+        'INSERT INTO analytics (link_id, country, referer, user_agent, timestamp) VALUES (?, ?, ?, ?, ?)'
+      ).bind(id, country, referer, ua, timestamp).run()
+
+      if (link.webhook_url) {
+        try {
+          await fetch(link.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ link_id: id, country, referer, timestamp }),
+          })
+        } catch {
+          // Ignore webhook failures
+        }
+      }
+    })()
   )
 
-  return c.redirect(link.original_url, 302)
+  return c.redirect(destination, 302)
 }

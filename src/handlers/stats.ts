@@ -1,21 +1,52 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
 
+type Mood = 'DORMANT' | 'ACTIVE' | 'BUSY' | 'VIRAL'
+
+function getMood(hourlyVisits: number): Mood {
+  if (hourlyVisits >= 50) return 'VIRAL'
+  if (hourlyVisits >= 10) return 'BUSY'
+  if (hourlyVisits >= 1) return 'ACTIVE'
+  return 'DORMANT'
+}
+
 export async function getStats(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
 
   const [link, visits, countries, referrers] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM links WHERE id = ?').bind(id).first(),
-    c.env.DB.prepare('SELECT COUNT(*) as count FROM analytics WHERE link_id = ?').bind(id).first(),
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM analytics WHERE link_id = ?').bind(id).first<{ count: number }>(),
     c.env.DB.prepare(
       'SELECT country, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY country ORDER BY count DESC LIMIT 10'
     ).bind(id).all(),
     c.env.DB.prepare(
       'SELECT referer, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY referer ORDER BY count DESC LIMIT 10'
-    ).bind(id).all()
+    ).bind(id).all(),
   ])
 
   if (!link) return c.json({ error: 'Not found' }, 404)
 
-  return c.json({ link, visits: visits?.count || 0, countries: countries.results, referrers: referrers.results })
+  return c.json({
+    link,
+    visits: visits?.count ?? 0,
+    countries: countries.results,
+    referrers: referrers.results,
+  })
+}
+
+export async function getGlobalStats(c: Context<{ Bindings: Env }>) {
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
+  const [totalResult, hourlyResult] = await Promise.all([
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM analytics').first<{ count: number }>(),
+    c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM analytics WHERE timestamp >= ?'
+    ).bind(oneHourAgo).first<{ count: number }>(),
+  ])
+
+  const totalVisits = totalResult?.count ?? 0
+  const hourlyVisits = hourlyResult?.count ?? 0
+  const mood: Mood = getMood(hourlyVisits)
+
+  return c.json({ totalVisits, hourlyVisits, mood })
 }

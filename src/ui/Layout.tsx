@@ -1,4 +1,5 @@
 /** @jsxImportSource hono/jsx */
+import config from './config.json'
 
 interface Props {
   title: string
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export default function Layout({ title, children }: Props) {
+  const { theme } = config
   return (
     <html lang="en">
       <head>
@@ -18,19 +20,19 @@ export default function Layout({ title, children }: Props) {
         <style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
-            font-family: 'JetBrains Mono', monospace; 
-            background: #0B0E14; 
-            color: #00F2FF; 
+            font-family: ${theme.font_family_body}; 
+            background: ${theme.colors.background}; 
+            color: ${theme.colors.primary}; 
             min-height: 100vh;
           }
-          h1, h2, h3 { font-family: 'Orbitron', sans-serif; }
+          h1, h2, h3 { font-family: ${theme.font_family_heading}; }
           .container { max-width: 800px; margin: 0 auto; padding: 2rem; }
           .btn {
-            background: #FF0055;
+            background: ${theme.colors.accent};
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
-            font-family: 'Orbitron', sans-serif;
+            font-family: ${theme.font_family_heading};
             cursor: pointer;
             border-radius: 4px;
           }

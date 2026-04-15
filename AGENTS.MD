@@ -12,13 +12,17 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - **UI Framework:** [Hono/JSX](https://hono.dev/docs/guides/jsx) (Server-side rendering for zero hydration lag).
 
 ## 🛠 Tech Stack
-- **Backend:** [Hono](https://hono.dev/) on Cloudflare Workers
-- **Frontend:** React + Vite + Tailwind CSS v4
-- **API Port:** 8383 (development)
-- **Frontend Port:** 3030 (development)
-- **Mascot:** Custom hand-coded SVG (The "Cool Duck")
-- **Testing:** [Vitest](https://vitest.dev/)
-- **Configuration:** [Wrangler](https://developers.cloudflare.com/workers/wrangler/)
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18 (TypeScript), Vite, React Router v6, TanStack Query v5, Tailwind CSS v3 |
+| Frontend extras | react-i18next, react-quill, react-markdown, DOMPurify, qrcode.react, recharts, lucide-react |
+| Backend | Hono.js on Cloudflare Workers |
+| Database | Cloudflare D1 (SQLite) via `DatabaseClient` wrapper |
+| Rate Limiting | Cloudflare KV (distributed rate limit tracking) |
+| Validation | Zod + `@hono/zod-validator` |
+| Testing | Vitest (frontend + backend) |
+| Deployment | Cloudflare Pages (frontend) + Cloudflare Workers (backend) |
 
 ## 🎨 Branding & Theme: "The Neon Pond"
 - **Mascot:** A minimalist white duck with a backward red cap and glowing cyber-visor.

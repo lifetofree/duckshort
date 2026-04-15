@@ -1,0 +1,33 @@
+{
+  "home": {
+    "title": "DuckShort | The Neon Pond",
+    "heading": "DuckShort",
+    "subheading": "Lightning-fast URL shortening at the Neon Pond",
+    "input_placeholder": "Enter URL to shorten",
+    "button_text": "Shorten"
+  },
+  "admin": {
+    "title": "DuckShort Admin",
+    "heading": "Admin Dashboard",
+    "secret_placeholder": "Admin Secret",
+    "login_button": "Login",
+    "logout_button": "Logout"
+  },
+  "theme": {
+    "font_family_body": "'JetBrains Mono', monospace",
+    "font_family_heading": "'Orbitron', sans-serif",
+    "colors": {
+      "background": "#0B0E14",
+      "primary": "#00F2FF",
+      "accent": "#FF0055",
+      "card": "#1a1f2e"
+    }
+  },
+  "messages": {
+    "error_url_required": "URL required",
+    "error_not_found": "Not found",
+    "error_unknown_action": "Unknown action",
+    "error_unauthorized": "Unauthorized",
+    "success_generic": "Success"
+  }
+}
