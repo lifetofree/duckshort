@@ -1,6 +1,7 @@
 name = "duckshort"
 main = "src/index.tsx"
 compatibility_date = "2024-04-15"
+compatibility_flags = ["nodejs_compat"]
 
 [dev]
 port = 8787
