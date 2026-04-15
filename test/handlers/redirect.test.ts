@@ -5,34 +5,9 @@ import app from '../../src/index'
 const BASE = 'http://localhost'
 
 async function applySchema() {
-  await env.DB.exec(`
-    CREATE TABLE IF NOT EXISTS links (
-      id TEXT PRIMARY KEY,
-      original_url TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      expires_at TEXT,
-      disabled INTEGER DEFAULT 0,
-      password_hash TEXT,
-      tag TEXT,
-      utm_source TEXT,
-      utm_medium TEXT,
-      utm_campaign TEXT,
-      webhook_url TEXT
-    );
-    CREATE TABLE IF NOT EXISTS analytics (
-      link_id TEXT NOT NULL,
-      country TEXT,
-      referer TEXT,
-      user_agent TEXT,
-      timestamp TEXT DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS link_variants (
-      id TEXT PRIMARY KEY,
-      link_id TEXT NOT NULL,
-      destination_url TEXT NOT NULL,
-      weight INTEGER DEFAULT 1
-    );
-  `)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, original_url TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT, disabled INTEGER DEFAULT 0, password_hash TEXT, tag TEXT, utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, webhook_url TEXT)`)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS analytics (link_id TEXT NOT NULL, country TEXT, referer TEXT, user_agent TEXT, timestamp TEXT DEFAULT (datetime('now')))`)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS link_variants (id TEXT PRIMARY KEY, link_id TEXT NOT NULL, destination_url TEXT NOT NULL, weight INTEGER DEFAULT 1)`)
 }
 
 async function clearAll() {
