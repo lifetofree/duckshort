@@ -5,7 +5,7 @@ Items marked ✅ were resolved in the refactoring pass on 2026-04-14.
 
 ---
 
-## Roadmap Gaps (Listed in AGENTS.MD but not implemented)
+## Roadmap Gaps (Listed in AGENTS.MD but not implemented) 
 
 ### Custom Domains
 - **Status**: Marked ✅ in original AGENTS.MD but no handler implementation exists.
