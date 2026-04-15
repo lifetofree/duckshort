@@ -1,1 +1,7 @@
+# SPA fallback - must be last
 /* /index.html 200
+
+# API routes - proxy to Worker
+/api/* https://duckshort.chonlaphon.workers.dev/api/:splat 200
+/preview/* https://duckshort.chonlaphon.workers.dev/preview/:splat 200
+/password/* https://duckshort.chonlaphon.workers.dev/password/:splat 200
