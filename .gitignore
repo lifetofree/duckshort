@@ -2,6 +2,7 @@ node_modules
 .wrangler
 dist
 .env
+.env.local
 .dev.vars
 .DS_Store
 worker-configuration.d.ts
