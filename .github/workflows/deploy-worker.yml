@@ -34,18 +34,7 @@ jobs:
           cd frontend
           npm install
           npm run build
-          ls -R dist # Debug: verify dist folder exists
-
-      - name: Check Cloudflare Secrets
-        run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-            echo "Error: CLOUDFLARE_API_TOKEN is not set. Please add it to your repository secrets."
-            exit 1
-          fi
-          if [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
-            echo "Error: CLOUDFLARE_ACCOUNT_ID is not set. Please add it to your repository secrets."
-            exit 1
-          fi
+          ls -R dist
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
