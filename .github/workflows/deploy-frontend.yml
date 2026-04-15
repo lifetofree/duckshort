@@ -38,4 +38,3 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: duckshort
           directory: frontend/dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
