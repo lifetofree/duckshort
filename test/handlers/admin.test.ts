@@ -28,7 +28,7 @@ describe('GET /api/links', () => {
   beforeEach(async () => { await applySchema(); await clearLinks() })
 
   it('returns 401 without auth', async () => {
-    const res = await app.request(`${BASE}/api/links`)
+    const res = await app.request(`${BASE}/api/links`, {}, env)
     expect(res.status).toBe(401)
   })
 
@@ -36,7 +36,7 @@ describe('GET /api/links', () => {
     await seedLink()
     const res = await app.request(`${BASE}/api/links`, {
       headers: { Authorization: AUTH },
-    })
+    }, env)
     expect(res.status).toBe(200)
     const body = await res.json<any[]>()
     expect(body.length).toBe(1)
@@ -52,7 +52,7 @@ describe('POST /api/links', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'https://example.com' }),
-    })
+    }, env)
     expect(res.status).toBe(401)
   })
 
@@ -61,7 +61,7 @@ describe('POST /api/links', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
       body: JSON.stringify({ url: 'https://example.com' }),
-    })
+    }, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ id: string; shortUrl: string }>()
     expect(body.id).toHaveLength(8)
@@ -73,7 +73,7 @@ describe('POST /api/links', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
       body: JSON.stringify({}),
-    })
+    }, env)
     expect(res.status).toBe(400)
   })
 })
@@ -83,7 +83,7 @@ describe('DELETE /api/links/:id', () => {
 
   it('returns 401 without auth', async () => {
     await seedLink()
-    const res = await app.request(`${BASE}/api/links/testlink`, { method: 'DELETE' })
+    const res = await app.request(`${BASE}/api/links/testlink`, { method: 'DELETE' }, env)
     expect(res.status).toBe(401)
   })
 
@@ -92,7 +92,7 @@ describe('DELETE /api/links/:id', () => {
     const res = await app.request(`${BASE}/api/links/testlink`, {
       method: 'DELETE',
       headers: { Authorization: AUTH },
-    })
+    }, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ success: boolean }>()
     expect(body.success).toBe(true)
@@ -108,7 +108,7 @@ describe('PATCH /api/links/:id (toggle)', () => {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
       body: JSON.stringify({ action: 'toggle' }),
-    })
+    }, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ disabled: boolean }>()
     expect(body.disabled).toBe(true)
@@ -125,7 +125,7 @@ describe('POST /api/links/bulk-delete', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
       body: JSON.stringify({ ids: ['link1', 'link2'] }),
-    })
+    }, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ deleted: number }>()
     expect(body.deleted).toBe(2)

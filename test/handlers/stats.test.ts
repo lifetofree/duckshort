@@ -20,7 +20,7 @@ describe('GET /api/stats/:id', () => {
   beforeEach(async () => { await applySchema(); await clearAll() })
 
   it('returns 404 for unknown link', async () => {
-    const res = await app.request(`${BASE}/api/stats/notexist`)
+    const res = await app.request(`${BASE}/api/stats/notexist`, {}, env)
     expect(res.status).toBe(404)
   })
 
@@ -32,7 +32,7 @@ describe('GET /api/stats/:id', () => {
       'INSERT INTO analytics (link_id, country, referer, user_agent) VALUES (?, ?, ?, ?)'
     ).bind('stat1234', 'US', 'https://google.com', 'Mozilla').run()
 
-    const res = await app.request(`${BASE}/api/stats/stat1234`)
+    const res = await app.request(`${BASE}/api/stats/stat1234`, {}, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ visits: number; countries: any[]; referrers: any[] }>()
     expect(body.visits).toBe(1)
@@ -51,7 +51,7 @@ describe('GET /api/stats/global', () => {
       'INSERT INTO analytics (link_id, country, referer, user_agent, timestamp) VALUES (?, ?, ?, ?, ?)'
     ).bind('glb12345', 'US', 'direct', 'bot', new Date().toISOString()).run()
 
-    const res = await app.request(`${BASE}/api/stats/global`)
+    const res = await app.request(`${BASE}/api/stats/global`, {}, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ totalVisits: number; hourlyVisits: number; mood: string }>()
     expect(body.totalVisits).toBe(1)
@@ -60,7 +60,7 @@ describe('GET /api/stats/global', () => {
   })
 
   it('returns DORMANT mood when there are no recent visits', async () => {
-    const res = await app.request(`${BASE}/api/stats/global`)
+    const res = await app.request(`${BASE}/api/stats/global`, {}, env)
     expect(res.status).toBe(200)
     const body = await res.json<{ mood: string }>()
     expect(body.mood).toBe('DORMANT')
