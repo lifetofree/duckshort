@@ -31,13 +31,11 @@ export default function HomePage() {
   const [statsError, setStatsError] = useState<string | null>(null)
   const [stats, setStats] = useState<any | null>(null)
 
-  const [totalVisits, setTotalVisits] = useState<number | null>(null)
-
   useEffect(() => {
     const p = fetch(`${API}/api/stats/global`)
     if (!p || typeof p.then !== 'function') return
     p.then((r) => r.json())
-      .then((d) => setTotalVisits(d.totalVisits))
+      .then((d) => console.log('Global stats:', d.totalVisits))
       .catch(() => null)
   }, [shortUrl])
 
@@ -56,7 +54,7 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_SECRET}` },
         body: JSON.stringify({ url, expiresIn: expiry || undefined }),
       })
-      const data = await res.json<{ shortUrl?: string; error?: string }>()
+      const data = await res.json()
       if (data.shortUrl) setShortUrl(data.shortUrl)
       else setError(data.error ?? 'Failed to shorten URL')
     } catch {
@@ -74,7 +72,7 @@ export default function HomePage() {
     setStats(null)
     try {
       const res = await fetch(`${API}/api/stats/${statsId.trim()}`)
-      const data = await res.json<any>()
+      const data = await res.json()
       if (data.error) setStatsError(data.error)
       else setStats(data)
     } catch {
