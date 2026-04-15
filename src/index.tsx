@@ -50,8 +50,8 @@ app.get('/', (c) => {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="https://3f518a8c.duckshort.pages.dev/assets/index-EyEACPkb.js"></script>
-    <link rel="stylesheet" crossorigin href="https://3f518a8c.duckshort.pages.dev/assets/index-DElTtuHV.css">
+    <script type="module" crossorigin src="https://7bbd87b8.duckshort.pages.dev/assets/index-CGNhwaA1.js"></script>
+    <link rel="stylesheet" crossorigin href="https://7bbd87b8.duckshort.pages.dev/assets/index-DElTtuHV.css">
   </head>
   <body>
     <div id="root"></div>
