@@ -17,7 +17,7 @@ database_name = "duckshort-db"
 database_id = "cbb432e6-7252-461d-83ff-d792be1413fb"
 
 [vars]
-BASE_URL = "https://duckshort.chonlaphon.workers.dev"
+BASE_URL = "https://duckshort.cc"
 
 # ADMIN_SECRET is stored as an encrypted secret — do NOT add it here.
 # Run once to set it: wrangler secret put ADMIN_SECRET
