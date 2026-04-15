@@ -21,7 +21,7 @@ export default function PasswordEntry({ id, error }: Props) {
           <p style="color: #FF0055; margin-bottom: 1rem; font-size: 0.9rem;">{error}</p>
         )}
 
-        <form method="POST" action={`/password/${id}`} style="max-width: 360px; margin: 0 auto;">
+        <form method="post" action={`/password/${id}`} style="max-width: 360px; margin: 0 auto;">
           <input
             type="password"
             name="password"

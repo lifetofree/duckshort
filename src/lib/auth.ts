@@ -3,7 +3,7 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const aBytes = encoder.encode(a)
   const bBytes = encoder.encode(b)
   if (aBytes.length !== bBytes.length) return false
-  return crypto.subtle.timingSafeEqual(aBytes, bBytes)
+  return (crypto.subtle as any).timingSafeEqual(aBytes, bBytes)
 }
 
 export async function requireAuth(
