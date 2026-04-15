@@ -13,6 +13,3 @@ BASE_URL = "http://localhost:8383"
 
 [observability]
 enabled = true
-
-[site]
-bucket = "./frontend/dist"

@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
-import { serveStatic } from 'hono/cloudflare-workers'
 import type { Env } from './types'
 
 import { getLinks, createLink, deleteLink } from './handlers/admin'
@@ -15,12 +14,6 @@ const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
 app.use('*', cors())
-
-// Serve static assets from the frontend build
-// These paths must match the ones in index.html
-app.get('/assets/*', serveStatic({ root: './frontend/dist' }))
-app.get('/favicon.svg', serveStatic({ root: './frontend/dist' }))
-app.get('/icons.svg', serveStatic({ root: './frontend/dist' }))
 
 app.get('/', (c) => c.html(<Home />))
 app.get('/admin', (c) => c.html(<Admin />))
