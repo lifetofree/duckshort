@@ -45,6 +45,21 @@ Items marked ✅ were resolved in the refactoring pass on 2026-04-14.
 - **Fixed in:** `migrations/0004_add_analytics_indexes.sql`
 - Added `idx_analytics_link_country ON analytics(link_id, country)` and `idx_analytics_link_referer ON analytics(link_id, referer)`.
 
+### ✅ [MEDIUM] Stats lookup doesn't handle full URLs
+- **Fixed in:** `frontend/src/pages/Home.tsx`
+- Users can now paste a full short URL (e.g., `https://duckshort.cc/abc123`) into the stats search box, and it will correctly extract the ID.
+
+### ✅ [MEDIUM] Missing analytics/webhooks on password-protected links
+- **Fixed in:** `src/handlers/password.tsx`
+- Successful password-protected redirects now correctly fire the `webhook_url` and record analytics, matching the behavior of standard redirects.
+
+### ✅ [LOW] Inconsistent expiration timing
+- **Fixed in:** `src/handlers/redirect.tsx`, `src/handlers/preview.tsx`, `src/handlers/password.tsx`
+- Switched from JS-based `new Date()` checks to SQLite's `datetime('now')` for edge-wide consistency.
+
+### ✅ [LOW] Build failure from JSX in .ts file
+- **Fixed in:** Renamed `src/handlers/redirect.ts` to `src/handlers/redirect.tsx` to correctly support JSX rendering for the themed NotFound component.
+
 ---
 
 ## Code Inconsistencies
