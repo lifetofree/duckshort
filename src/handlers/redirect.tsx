@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
+import NotFound from '../ui/pages/NotFound'
 
 interface LinkRow {
   original_url: string
@@ -50,17 +51,25 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
 
   const link = await c.env.DB.prepare(
     `SELECT original_url, disabled, expires_at, password_hash,
-            utm_source, utm_medium, utm_campaign, webhook_url
+            utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read,
+            (expires_at IS NOT NULL AND expires_at < datetime('now')) as is_expired
      FROM links WHERE id = ?`
-  ).bind(id).first<LinkRow>()
+  ).bind(id).first<LinkRow & { is_expired: number; burn_on_read: number }>()
 
   if (!link || link.disabled) {
-    return c.html('<h1>Link not found or disabled</h1>', 404)
+    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
   }
 
-  if (link.expires_at && new Date(link.expires_at) < new Date()) {
+  if (link.is_expired) {
     await c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(id).run()
-    return c.html('<h1>Link expired</h1>', 410)
+    return c.html(<NotFound message="LINK EXPIRED" />, 410)
+  }
+
+  // Handle burn_on_read: disable link for future use
+  if (link.burn_on_read) {
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(id).run()
+    )
   }
 
   // Password-protected: redirect to entry page

@@ -8,6 +8,8 @@ import { redirectLink } from './handlers/redirect'
 import { getStats, getGlobalStats } from './handlers/stats'
 import { previewLink } from './handlers/preview'
 import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
+import { cleanupExpiredLinks } from './handlers/cleanup'
+import { rateLimit } from './middleware/rateLimit'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -22,7 +24,7 @@ app.use('*', cors({
 app.get('/api/stats/global', getGlobalStats)
 app.get('/api/stats/:id', getStats)
 app.get('/api/links', getLinks)
-app.post('/api/links', createLink)
+app.post('/api/links', rateLimit, createLink)
 app.post('/api/links/bulk-delete', bulkDeleteLinks)
 app.patch('/api/links/:id', updateLink)
 app.delete('/api/links/:id', deleteLink)
@@ -62,4 +64,13 @@ app.get('/', (c) => {
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
-export default app
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      cleanupExpiredLinks(env).then(({ deleted }) => {
+        console.log(`[cron] Cleaned up ${deleted} expired link(s)`)
+      })
+    )
+  },
+}

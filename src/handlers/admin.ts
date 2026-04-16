@@ -48,6 +48,8 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   const body = await c.req.json<{
     url: string
+    customId?: string
+    burn_on_read?: boolean
     expiresIn?: number
     password?: string
     tag?: string
@@ -60,7 +62,16 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   if (!body.url) return c.json({ error: 'URL required' }, 400)
 
-  const id = generateId()
+  let id = body.customId?.trim() || generateId()
+  
+  // If custom ID, check if it already exists
+  if (body.customId) {
+    const existing = await c.env.DB.prepare(
+      'SELECT id FROM links WHERE id = ?'
+    ).bind(id).first()
+    if (existing) return c.json({ error: 'Custom alias already taken' }, 409)
+  }
+
   const createdAt = new Date().toISOString()
   const expiresAt = body.expiresIn
     ? new Date(Date.now() + body.expiresIn * 1000).toISOString()
@@ -69,8 +80,8 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   await c.env.DB.prepare(
     `INSERT INTO links
-      (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
@@ -82,7 +93,8 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
       body.utm_source ?? null,
       body.utm_medium ?? null,
       body.utm_campaign ?? null,
-      body.webhook_url ?? null
+      body.webhook_url ?? null,
+      body.burn_on_read ? 1 : 0
     )
     .run()
 

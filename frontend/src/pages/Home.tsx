@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { QRCodeSVG } from 'qrcode.react'
-import logo from '../assets/logo.png'
+import DuckMoodLogo, { type DuckMood } from '../components/DuckMoodLogo'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
+
+const MILESTONES = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 5_000_000, 10_000_000]
+
+function getQuackDisplay(count: number): { text: string; isMilestone: boolean } {
+  const hit = MILESTONES.find((m) => count >= m && count < m + 100) ?? null
+  const text = hit
+    ? `🦆 ${hit.toLocaleString()} QUACKS SERVED`
+    : `🦆 ${count.toLocaleString()} QUACKS SERVED`
+  return { text, isMilestone: hit !== null }
+}
 
 type Tab = 'shorten' | 'stats'
 
@@ -20,6 +30,8 @@ export default function HomePage() {
   const [tab, setTab] = useState<Tab>('shorten')
 
   const [url, setUrl] = useState('')
+  const [customId, setCustomId] = useState('')
+  const [burnOnRead, setBurnOnRead] = useState(false)
   const [expiry, setExpiry] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,12 +43,25 @@ export default function HomePage() {
   const [statsError, setStatsError] = useState<string | null>(null)
   const [stats, setStats] = useState<any | null>(null)
 
+  const [totalVisits, setTotalVisits] = useState<number | null>(null)
+  const [mood, setMood] = useState<DuckMood>('ACTIVE')
+
   useEffect(() => {
-    const p = fetch(`${API}/api/stats/global`)
-    if (!p || typeof p.then !== 'function') return
-    p.then((r) => r.json())
-      .then((d) => console.log('Global stats:', d.totalVisits))
-      .catch(() => null)
+    const fetchGlobalStats = () => {
+      fetch(`${API}/api/stats/global`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (typeof d.totalVisits === 'number') setTotalVisits(d.totalVisits)
+          if (d.mood === 'DORMANT' || d.mood === 'ACTIVE' || d.mood === 'BUSY' || d.mood === 'VIRAL') {
+            setMood(d.mood as DuckMood)
+          }
+        })
+        .catch(() => setMood('ERROR'))
+    }
+
+    fetchGlobalStats()
+    const interval = setInterval(fetchGlobalStats, 30_000) // 30s
+    return () => clearInterval(interval)
   }, [shortUrl])
 
   const handleShorten = async (e: React.FormEvent) => {
@@ -52,13 +77,25 @@ export default function HomePage() {
       const res = await fetch(`${API}/api/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_SECRET}` },
-        body: JSON.stringify({ url, expiresIn: expiry || undefined }),
+        body: JSON.stringify({ 
+          url, 
+          customId: customId.trim() || undefined,
+          burn_on_read: burnOnRead,
+          expiresIn: expiry || undefined 
+        }),
       })
+      
       const data = await res.json()
-      if (data.shortUrl) setShortUrl(data.shortUrl)
-      else setError(data.error ?? 'Failed to shorten URL')
-    } catch {
-      setError('Network error. Check your connection.')
+      if (res.ok) {
+        setShortUrl(data.shortUrl)
+        setCustomId('')
+        setBurnOnRead(false)
+      } else {
+        setError(data.error ?? `Error ${res.status}: Failed to shorten`)
+      }
+    } catch (err) {
+      console.error('Shorten error:', err)
+      setError('Network error. Is the backend running?')
     } finally {
       setIsLoading(false)
     }
@@ -66,12 +103,25 @@ export default function HomePage() {
 
   const handleViewStats = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!statsId.trim()) return
+    let id = statsId.trim()
+    if (!id) return
+
+    // Extract ID if a full URL was pasted
+    try {
+      const urlObj = new URL(id)
+      const pathParts = urlObj.pathname.split('/').filter(Boolean)
+      if (pathParts.length > 0) {
+        id = pathParts[pathParts.length - 1]
+      }
+    } catch {
+      // Not a URL, use as-is
+    }
+
     setStatsLoading(true)
     setStatsError(null)
     setStats(null)
     try {
-      const res = await fetch(`${API}/api/stats/${statsId.trim()}`)
+      const res = await fetch(`${API}/api/stats/${id}`)
       const data = await res.json()
       if (data.error) setStatsError(data.error)
       else setStats(data)
@@ -110,21 +160,9 @@ export default function HomePage() {
         animate={{ opacity: 1, y: 0 }}
         style={{ textAlign: 'center', marginBottom: '2.5rem' }}
       >
-        <img
-          src={logo}
-          alt="DuckShort"
-          style={{
-            display: 'block',
-            width: '140px',
-            height: '140px',
-            objectFit: 'cover',
-            borderRadius: '50%',
-            border: '3px solid rgba(0, 242, 255, 0.45)',
-            boxShadow:
-              '0 0 18px rgba(0, 242, 255, 0.4), 0 0 50px rgba(0, 242, 255, 0.15), inset 0 0 12px rgba(0, 242, 255, 0.08)',
-            margin: '0 auto 1.75rem',
-          }}
-        />
+        <div style={{ margin: '0 auto 1.75rem' }}>
+          <DuckMoodLogo mood={mood} />
+        </div>
 
         <h1
           style={{
@@ -157,6 +195,30 @@ export default function HomePage() {
         >
           REDIRECTING AT THE SPEED OF LIGHT
         </p>
+
+        {totalVisits !== null && (() => {
+          const { text, isMilestone } = getQuackDisplay(totalVisits)
+          return (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              style={{
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: isMilestone ? '0.82rem' : '0.65rem',
+                letterSpacing: isMilestone ? '2px' : '3px',
+                color: isMilestone ? 'var(--neon-magenta)' : 'var(--text-secondary)',
+                textTransform: 'uppercase',
+                marginTop: '0.75rem',
+                marginBottom: 0,
+                textShadow: isMilestone ? '0 0 12px var(--neon-magenta)' : 'none',
+                fontWeight: isMilestone ? 700 : 400,
+              }}
+            >
+              {text}
+            </motion.p>
+          )
+        })()}
       </motion.div>
 
       {/* Main Card */}
@@ -245,59 +307,123 @@ export default function HomePage() {
                   }}
                 />
 
-                {/* Expiry selector */}
-                <div
-                  className="input-neon"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0.9rem 1.25rem',
-                    borderRadius: '10px',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: '0.65rem',
-                      letterSpacing: '2px',
-                      color: 'var(--text-secondary)',
-                      textTransform: 'uppercase',
-                      flexShrink: 0,
-                      fontFamily: 'JetBrains Mono, monospace',
-                    }}
-                  >
-                    EXPIRY:
-                  </span>
-                  <select
-                    value={expiry}
-                    onChange={(e) => setExpiry(Number(e.target.value))}
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  {/* Custom Alias */}
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <input
+                      type="text"
+                      value={customId}
+                      onChange={(e) => setCustomId(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                      placeholder="CUSTOM_ALIAS (OPTIONAL)..."
+                      disabled={isLoading}
+                      className="input-neon"
+                      style={{
+                        width: '100%',
+                        padding: '1.05rem 1.25rem',
+                        borderRadius: '10px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.7rem',
+                        letterSpacing: '1px',
+                      }}
+                    />
+                  </div>
+
+                  {/* Expiry selector */}
+                  <div
+                    className="input-neon"
                     style={{
                       flex: 1,
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--neon-cyan)',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontWeight: 700,
-                      fontSize: '0.72rem',
-                      letterSpacing: '2px',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      appearance: 'none',
-                      textTransform: 'uppercase',
+                      minWidth: '200px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '0.9rem 1.25rem',
+                      borderRadius: '10px',
+                      gap: '0.5rem',
                     }}
                   >
-                    {EXPIRY_OPTIONS.map((o) => (
-                      <option
-                        key={o.value}
-                        value={o.value}
-                        style={{ background: 'var(--bg-tertiary)', color: 'var(--neon-cyan)' }}
-                      >
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-                    ▾
+                    <span
+                      style={{
+                        fontSize: '0.6rem',
+                        letterSpacing: '2px',
+                        color: 'var(--text-secondary)',
+                        textTransform: 'uppercase',
+                        flexShrink: 0,
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
+                      EXPIRY:
+                    </span>
+                    <select
+                      value={expiry}
+                      onChange={(e) => setExpiry(Number(e.target.value))}
+                      style={{
+                        flex: 1,
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--neon-cyan)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: 700,
+                        fontSize: '0.7rem',
+                        letterSpacing: '1px',
+                        cursor: 'pointer',
+                        outline: 'none',
+                        appearance: 'none',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {EXPIRY_OPTIONS.map((o) => (
+                        <option
+                          key={o.value}
+                          value={o.value}
+                          style={{ background: 'var(--bg-tertiary)', color: 'var(--neon-cyan)' }}
+                        >
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Burn on Read Toggle */}
+                <div 
+                  onClick={() => setBurnOnRead(!burnOnRead)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem', 
+                    cursor: 'pointer',
+                    padding: '0.25rem'
+                  }}
+                >
+                  <div style={{
+                    width: '38px',
+                    height: '20px',
+                    borderRadius: '20px',
+                    background: burnOnRead ? 'var(--neon-magenta)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${burnOnRead ? 'var(--neon-magenta)' : 'rgba(0, 242, 255, 0.2)'}`,
+                    position: 'relative',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: burnOnRead ? '0 0 8px var(--neon-magenta)' : 'none'
+                  }}>
+                    <div style={{
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: burnOnRead ? '#fff' : 'var(--text-secondary)',
+                      position: 'absolute',
+                      top: '2px',
+                      left: burnOnRead ? '20px' : '2px',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                    }} />
+                  </div>
+                  <span style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.65rem',
+                    letterSpacing: '2px',
+                    color: burnOnRead ? 'var(--neon-magenta)' : 'var(--text-secondary)',
+                    textTransform: 'uppercase'
+                  }}>
+                    BURN_ON_READ (SELF-DESTRUCT)
                   </span>
                 </div>
 

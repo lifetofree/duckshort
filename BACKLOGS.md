@@ -15,13 +15,17 @@ Items marked ✅ were resolved in the refactoring pass on 2026-04-14.
 
 ## Missing Features
 
-### Scheduled cleanup for expired links
-- Expired links are soft-expired (query filters them) but never deleted from D1.
-- **Approach**: Add a Cloudflare Workers Cron Trigger to purge `WHERE expires_at < CURRENT_TIMESTAMP`.
+### ✅ Scheduled cleanup for expired links
+- **Resolved**: Cloudflare Workers Cron Trigger executes `cleanupExpiredLinks` to purge expired links.
 
-### Rate limiting
-- No protection against link creation spam.
-- **Approach**: Use Cloudflare WAF rate limiting rules, or implement IP-based throttle via Workers KV.
+### ✅ Rate limiting
+- **Resolved**: IP-based throttle implemented via Workers KV in `src/middleware/rateLimit.ts`.
+
+### ✅ Custom Pond Aliases (Vanity URLs)
+- **Resolved**: Users can specify a custom ID at creation time. The API checks for collisions.
+
+### ✅ Burn-on-Read (Self-Destructing Links)
+- **Resolved**: Added `burn_on_read` column. Redirect and Password verification handlers disable the link after the first successful forward.
 
 ### Admin: search and filter
 - All links shown in creation order with no search or sort.
@@ -34,6 +38,18 @@ Items marked ✅ were resolved in the refactoring pass on 2026-04-14.
 ---
 
 ## Improvements
+
+### Neon Heatmap Visualization
+- Transform the existing country stats into a visual geographic heatmap.
+- **Approach**: Integrate a lightweight SVG map library (like `react-simple-maps`) in the `Home.tsx` stats tab to visualize `cf-ipcountry` data with neon glows.
+
+### Meta-Duck OG Tag Customization
+- Customize Social Preview (OpenGraph) tags for the Preview Interstitial page.
+- **Approach**: Add `og_title` and `og_image` columns to the database and inject them into the `Preview.tsx` SSR template.
+
+### Geo-Fencing Redirects
+- Redirect users to different URLs based on their country.
+- **Approach**: Leverage the `cf-ipcountry` header in the redirect handler to match against a new `geo_redirects` table or column.
 
 ### ✅ Shared TypeScript types between backend handlers
 - **Resolved**: `src/types.ts` created with shared `Bindings` type. All handlers and `index.tsx` import from it.

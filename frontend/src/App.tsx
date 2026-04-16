@@ -19,8 +19,8 @@ function NotFound() {
       gap: '0.5rem',
       paddingTop: import.meta.env.MODE === 'development' ? '5rem' : '0',
     }}>
-      <span style={{ fontSize: '3rem', fontFamily: 'Orbitron, sans-serif', color: 'var(--neon-cyan)' }}>404</span>
-      <span>PAGE NOT FOUND</span>
+      <span style={{ fontSize: '3rem', fontFamily: 'Orbitron, sans-serif', color: 'var(--neon-cyan)', textShadow: '0 0 10px var(--neon-cyan)' }}>404</span>
+      <span className="neon-glow-cyan">PAGE NOT FOUND</span>
     </div>
   )
 }

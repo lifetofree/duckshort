@@ -12,6 +12,15 @@ binding = "DB"
 database_name = "duckshort-db"
 database_id = "cbb432e6-7252-461d-83ff-d792be1413fb"
 
+# Run once before deploying: wrangler kv namespace create RATE_LIMIT
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[triggers]
+crons = ["0 * * * *"]
+
 [vars]
 BASE_URL = "https://duckshort.cc"
 

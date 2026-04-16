@@ -89,15 +89,17 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Observability:** `wrangler.toml` sets `observability.enabled = true`
 - [x] **CI/CD Pipelines:** GitHub Actions workflows for Worker and Pages deployment
 - [x] **Encrypted Secrets:** `ADMIN_SECRET` stored via `wrangler secret put`, not in repo
+- [x] **View Stats Tab:** Interactive stats lookup in `Home.tsx` using `GET /api/stats/:id`
+- [x] **Rate Limiting:** Per-IP throttle on link creation via `src/middleware/rateLimit.ts`
+- [x] **Scheduled Cleanup:** Cron Trigger executes `cleanupExpiredLinks` via `src/handlers/cleanup.ts`
+- [x] **Custom Pond Aliases:** Vanity URL support (e.g., `/my-alias`) with collision checking
+- [x] **Burn-on-Read:** Self-destructing links that disable themselves after the first successful redirect
 
 ### Not Yet Implemented
-- [ ] **Admin React Page:** `/admin` route exists in React Router but no component (SSR placeholder only)
-- [ ] **View Stats Tab:** Stats tab in Home.tsx is currently hidden (state + API intact, UI hidden)
+- [ ] **Admin React Page:** Dedicated dashboard for link management (currently API-only)
 - [ ] **Visit Sparkline UI:** 7-day per-link sparkline data available from `GET /api/links` but not rendered
-- [ ] **Bulk Export CSV:** Not yet wired up
-- [ ] **Custom Domains:** No `custom_domain` column or route matching
-- [ ] **Rate Limiting:** No per-IP throttle on link creation
-- [ ] **Scheduled Cleanup:** No Cron Trigger to hard-delete expired links
+- [ ] **Bulk Export CSV:** Data export functionality for admin
+- [ ] **Custom Domains:** Support for `custom_domain` column and route matching
 
 ## Running Locally
 

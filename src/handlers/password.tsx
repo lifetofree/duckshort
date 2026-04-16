@@ -3,6 +3,7 @@ import type { Context } from 'hono'
 import type { Env } from '../types'
 import { verifyPassword } from '../lib/auth'
 import PasswordEntry from '../ui/pages/PasswordEntry'
+import NotFound from '../ui/pages/NotFound'
 
 interface LinkRow {
   original_url: string
@@ -35,15 +36,17 @@ function injectUtm(
 export async function showPasswordEntry(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
   const link = await c.env.DB.prepare(
-    'SELECT original_url, disabled, expires_at, password_hash FROM links WHERE id = ?'
-  ).bind(id).first<LinkRow>()
+    `SELECT original_url, disabled, password_hash,
+            (expires_at IS NOT NULL AND expires_at < datetime('now')) as is_expired
+     FROM links WHERE id = ?`
+  ).bind(id).first<LinkRow & { is_expired: number }>()
 
   if (!link || link.disabled || !link.password_hash) {
-    return c.html('<h1>Link not found</h1>', 404)
+    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
   }
 
-  if (link.expires_at && new Date(link.expires_at) < new Date()) {
-    return c.html('<h1>Link expired</h1>', 410)
+  if (link.is_expired) {
+    return c.html(<NotFound message="LINK EXPIRED" />, 410)
   }
 
   return c.html(<PasswordEntry id={id} error={null} />)
@@ -52,17 +55,18 @@ export async function showPasswordEntry(c: Context<{ Bindings: Env }>) {
 export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
   const link = await c.env.DB.prepare(
-    `SELECT original_url, disabled, expires_at, password_hash,
-            utm_source, utm_medium, utm_campaign
+    `SELECT original_url, disabled, password_hash,
+            utm_source, utm_medium, utm_campaign, burn_on_read,
+            (expires_at IS NOT NULL AND expires_at < datetime('now')) as is_expired
      FROM links WHERE id = ?`
-  ).bind(id).first<LinkRow>()
+  ).bind(id).first<LinkRow & { is_expired: number; burn_on_read: number }>()
 
   if (!link || link.disabled || !link.password_hash) {
-    return c.html('<h1>Link not found</h1>', 404)
+    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
   }
 
-  if (link.expires_at && new Date(link.expires_at) < new Date()) {
-    return c.html('<h1>Link expired</h1>', 410)
+  if (link.is_expired) {
+    return c.html(<NotFound message="LINK EXPIRED" />, 410)
   }
 
   const body = await c.req.parseBody()
@@ -73,6 +77,13 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
     return c.html(<PasswordEntry id={id} error="Incorrect password" />, 401)
   }
 
+  // Handle burn_on_read
+  if (link.burn_on_read) {
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(id).run()
+    )
+  }
+
   let destination = link.original_url
   destination = injectUtm(destination, link.utm_source, link.utm_medium, link.utm_campaign)
 
@@ -81,10 +92,29 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
   const ua = (c.req.header('user-agent') || 'unknown').slice(0, 255)
   const timestamp = new Date().toISOString()
 
+  // Fetch webhook_url for analytics (not in first query)
+  const meta = await c.env.DB.prepare(
+    'SELECT webhook_url FROM links WHERE id = ?'
+  ).bind(id).first<{ webhook_url: string | null }>()
+
   c.executionCtx.waitUntil(
-    c.env.DB.prepare(
-      'INSERT INTO analytics (link_id, country, referer, user_agent, timestamp) VALUES (?, ?, ?, ?, ?)'
-    ).bind(id, country, referer, ua, timestamp).run()
+    (async () => {
+      await c.env.DB.prepare(
+        'INSERT INTO analytics (link_id, country, referer, user_agent, timestamp) VALUES (?, ?, ?, ?, ?)'
+      ).bind(id, country, referer, ua, timestamp).run()
+
+      if (meta?.webhook_url) {
+        try {
+          await fetch(meta.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ link_id: id, country, referer, timestamp }),
+          })
+        } catch {
+          // Ignore webhook failures
+        }
+      }
+    })()
   )
 
   return c.redirect(destination, 302)
