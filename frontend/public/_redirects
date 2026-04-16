@@ -1,2 +1,10 @@
-# SPA fallback
+# API routes — proxy to Worker (must be before SPA fallback)
+/api/* https://duckshort.cc/api/:splat 200
+/preview/* https://duckshort.cc/preview/:splat 200
+/password/* https://duckshort.cc/password/:splat 200
+
+# Short links — proxy to Worker
+/:id https://duckshort.cc/:id 200
+
+# SPA fallback — must be last
 /* /index.html 200
