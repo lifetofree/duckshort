@@ -36,10 +36,12 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: 'https://duckshort.chonlaphon.workers.dev'
+          VITE_API_URL: 'https://duckshort.cc'
+          VITE_ADMIN_SECRET: ${{ secrets.VITE_ADMIN_SECRET }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy frontend/dist --project-name=duckshort

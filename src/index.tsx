@@ -38,28 +38,20 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - Serve frontend HTML
-app.get('/', (c) => {
-  return c.html(`
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="https://duckshort.pages.dev/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="DuckShort — Lightning-fast URL shortening at the Neon Pond" />
-    <title>DuckShort | The Neon Pond</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="https://duckshort.pages.dev/assets/index-BrN49-oh.js"></script>
-    <link rel="stylesheet" crossorigin href="https://duckshort.pages.dev/assets/index-BjtX5gEt.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
-</html>
-  `)
+// Root route - proxy index.html from Pages so asset hashes are always current
+app.get('/', async (c) => {
+  try {
+    const res = await fetch('https://duckshort.pages.dev/', {
+      headers: { 'User-Agent': 'DuckShort-Worker/1.0' },
+    })
+    const html = await res.text()
+    return c.html(html, 200, {
+      'Cache-Control': 'no-store',
+    })
+  } catch {
+    // Minimal fallback if Pages is unreachable
+    return c.html(`<!doctype html><html><head><meta charset="UTF-8"/><title>DuckShort</title></head><body><div id="root"></div></body></html>`, 503)
+  }
 })
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))

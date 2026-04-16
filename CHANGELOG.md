@@ -2,6 +2,29 @@
 
 All notable changes to the DuckShort project will be documented in this file.
 
+## [1.2.0] - 2026-04-16
+
+### Added
+- **Duck Mood Indicator (Feature 13):** `DuckMoodLogo` component replaces the static logo. Logo expression and status pill change based on system health — states: `DORMANT`, `ACTIVE`, `BUSY`, `VIRAL`, `ERROR`. Badge emoji animates with spring transition.
+- **Quack Counter (Feature 12):** Total redirect count displayed on the home page, sourced from `GET /api/stats/global`. Detects milestone thresholds (1k, 5k, 10k … 10M) and highlights them.
+- **Rate Limiting:** Per-IP throttle (20 req/hr) on link creation via `src/middleware/rateLimit.ts` backed by Cloudflare KV. Gracefully skips if `RATE_LIMIT` binding is absent.
+- **Scheduled Expired Link Cleanup:** Cron trigger (`0 * * * *`) runs `cleanupExpiredLinks` which executes `DELETE … WHERE datetime(expires_at) < datetime('now')`.
+- **GitHub Actions CI/CD:** Three workflows — `deploy-worker.yml` (worker only, `workflow_dispatch`), `deploy-frontend.yml` (pages only, `workflow_dispatch`), `deploy-all.yml` (both in sequence on push to `main`).
+- **Worker Dynamic Root Proxy:** `GET /` now fetches `https://duckshort.pages.dev/` at request time and proxies the response, so asset filenames are always current — no more hardcoded hashes.
+- **Stable Vite Asset Filenames:** Disabled Rollup content hashing; output is always `assets/index.js` and `assets/index.css`. Eliminates the need to update the Worker whenever the frontend redeploys.
+
+### Fixed
+- **Blank Page at duckshort.cc:** Root cause was duplicate `Access-Control-Allow-Origin` headers (`*, *, *`). The `_headers` file was adding CORS headers that stacked with Cloudflare Pages' automatic `*` header. Removed manual CORS entries from `_headers` — Pages handles them automatically.
+- **Short Link 404s:** Worker Route `duckshort.cc/*` was not enabling `workers_dev`. Fixed by ensuring `workers_dev = true` is at the **top level** of `wrangler.toml`, not nested inside a section block.
+- **ISO 8601 Expiry Comparison Bug:** JS `new Date().toISOString()` stores dates with a `T` separator (e.g. `2026-04-16T12:00:00.000Z`). SQLite `datetime('now')` uses a space separator. Lexicographic comparison always treated ISO dates as "in the future". Fixed by wrapping both sides: `datetime(expires_at) < datetime('now')` in both `redirect.tsx` and `cleanup.ts`.
+- **`app.request is not a function` in Tests:** Changing the Worker export to `{ fetch, scheduled }` broke tests that called `app.request()`. Fixed all test files to use `app.fetch(new Request(url, init), env, ctx)`.
+- **Wrangler v4 `--yes` Flag Removed:** CI migration step was failing with "Unknown argument: yes". Removed the flag — wrangler v4 auto-confirms in non-interactive environments.
+
+### Changed
+- **`_headers` Cleanup:** Removed the malformed `/* … */` wrapper (parsed as a route rule, not a comment). File now has two clean sections: security headers for `/*` and `Cache-Control: immutable` for `/assets/*`.
+- **Worker Export Shape:** Changed from `export default app` to `export default { fetch: app.fetch, scheduled }` to support cron triggers.
+- **`VITE_API_URL` in CI:** Changed from `https://duckshort.chonlaphon.workers.dev` to `https://duckshort.cc` after Worker Route took over the domain.
+
 ## [1.1.0] - 2026-04-16
 
 ### Added

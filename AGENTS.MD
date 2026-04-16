@@ -6,10 +6,12 @@ DuckShort is a high-performance, edge-native URL shortener with a "Synthwave Mal
 Provide lightning-fast redirects and secure link management with a visually striking, neon-futuristic user experience.
 
 ## Core Architecture
-- **Backend:** Hono.js on Cloudflare Workers (edge computing, sub-10ms cold starts)
-- **Frontend:** React 18 SPA on Cloudflare Pages (separate deployment)
+- **Backend:** Hono.js 4 on Cloudflare Workers (edge computing, sub-10ms cold starts)
+- **Frontend:** React 18 SPA on Cloudflare Pages (separate deployment, served at `duckshort.pages.dev`)
 - **Database:** Cloudflare D1 (distributed SQLite)
+- **KV:** Cloudflare Workers KV (`RATE_LIMIT` namespace) for per-IP rate limiting
 - **ID Generation:** NanoID (8-character Base62, 62^8 = ~218 trillion combinations)
+- **Cron:** Cloudflare Cron Trigger (`0 * * * *`) for scheduled expired-link cleanup
 
 ## Tech Stack
 
@@ -23,21 +25,21 @@ Provide lightning-fast redirects and secure link management with a visually stri
 | Database | Cloudflare D1 (SQLite) |
 | Testing | Vitest — backend via `@cloudflare/vitest-pool-workers`, frontend via jsdom + @testing-library/react |
 | Deployment | Cloudflare Workers (backend) + Cloudflare Pages (frontend) |
-| CI/CD | GitHub Actions — two workflows (deploy-worker, deploy-frontend) |
+| CI/CD | GitHub Actions — three workflows (deploy-worker, deploy-frontend, deploy-all) |
 
 ## Branding & Theme: "The Neon Pond"
 
 **Title:** DuckShort | The Neon Pond
 
 **Color Palette (CSS variables in `frontend/src/index.css`):**
-- `--bg-primary: #0a0a0f` — main background
-- `--bg-secondary: #12121a` — card background
-- `--bg-tertiary: #1a1a25` — input background
-- `--neon-cyan: #00f5ff` — primary accent
-- `--neon-magenta: #ff00ff` — action/button color
+- `--bg-primary: #0B0E14` — main background
+- `--bg-secondary: #101520` — card background
+- `--bg-tertiary: #141A24` — input background
+- `--neon-cyan: #00F2FF` — primary accent
+- `--neon-magenta: #FF0055` — action/button color
 - `--neon-purple: #bf00ff` — secondary accent
-- `--text-primary: #ffffff`
-- `--text-secondary: #a0a0b0`
+- `--text-primary: #E8E8EC`
+- `--text-secondary: #5A6070`
 
 **Tailwind v4 theme tokens** (in `@theme` block):
 - `--color-cyan-500`, `--color-magenta-500`, `--color-bg-primary`, etc.
@@ -45,12 +47,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 **Typography:** Orbitron (headings, buttons) + JetBrains Mono (data, inputs, body) loaded via `<link>` in `index.html`
 
 **Utility Classes:**
-- `.glass-card` — glassmorphic dark panel
-- `.glass-card-neon` — high-intensity neon border panel
-- `.input-neon` — dark input, cyan border on focus
-- `.btn-neon` — cyan→magenta gradient button with glow
 - `.neon-glow-cyan` / `.neon-glow-magenta` — text shadow utilities
-- `.neon-border-cyan` / `.neon-border-magenta` — box shadow utilities
 
 **Asset:** `frontend/src/assets/logo.png` — duck mascot, displayed circular in the header
 
@@ -61,6 +58,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - **Enumeration Prevention:** NanoID Base62 prevents sequential guessing.
 - **Analytics Safety:** User-Agent and Referer headers truncated to 255 chars before storage.
 - **Secrets Management:** `ADMIN_SECRET` stored as an encrypted Cloudflare secret (`wrangler secret put ADMIN_SECRET`), never in `wrangler.toml`.
+- **Rate Limiting:** `src/middleware/rateLimit.ts` — 20 requests/hour per IP, stored in KV with 1-hour TTL. Returns 429 on breach. Skips gracefully if `RATE_LIMIT` binding is missing.
 
 ## Feature Roadmap
 
@@ -96,10 +94,11 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Burn-on-Read:** Self-destructing links that disable themselves after the first successful redirect
 
 ### Not Yet Implemented
-- [ ] **Admin React Page:** Dedicated dashboard for link management (currently API-only)
+- [ ] **Admin React Page:** `frontend/src/pages/Admin.tsx` exists but is minimal — no full dashboard UI yet
+- [ ] **Stats Tab UI:** Tab is intentionally hidden in `Home.tsx` (change `['shorten']` → `['shorten', 'stats']` to re-enable)
 - [ ] **Visit Sparkline UI:** 7-day per-link sparkline data available from `GET /api/links` but not rendered
 - [ ] **Bulk Export CSV:** Data export functionality for admin
-- [ ] **Custom Domains:** Support for `custom_domain` column and route matching
+- [ ] **Custom Domains:** Support for per-link custom domain routing
 
 ## Running Locally
 
@@ -143,14 +142,25 @@ cd frontend && npm run test
 
 ## Deployment
 
-Two independent deployments triggered by GitHub Actions on push to `main`.
+### Routing Architecture
+- All traffic to `duckshort.cc` is intercepted by the **Worker Route** (`duckshort.cc/*` with `zone_name = "duckshort.cc"` in `wrangler.toml`).
+- The Worker handles everything: API, redirects, password/preview interstitials, and the root SPA shell.
+- `GET /` dynamically fetches and proxies `https://duckshort.pages.dev/` so the correct JS/CSS asset filenames are always served — no hardcoded hashes.
+- Pages `_redirects` provides fallback routing if Pages is ever accessed directly.
+
+### GitHub Actions Workflows
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `deploy-all.yml` | Push to `main` | Deploys Worker then Pages (sequential) |
+| `deploy-worker.yml` | `workflow_dispatch` | Worker only |
+| `deploy-frontend.yml` | `workflow_dispatch` | Pages only |
 
 ### Required GitHub Secrets
 | Secret | Value |
 |--------|-------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API token (Edit Workers permission) |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API token (Edit Workers + Pages permission) |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID |
-| `VITE_API_URL` | `https://duckshort.cc` (worker URL for frontend build) |
+| `VITE_API_URL` | `https://duckshort.cc` |
 | `VITE_ADMIN_SECRET` | Same value as `ADMIN_SECRET` Cloudflare secret |
 
 ### First-time Setup
@@ -158,33 +168,41 @@ Two independent deployments triggered by GitHub Actions on push to `main`.
 # Set encrypted production secret (run once)
 wrangler secret put ADMIN_SECRET
 
+# Create KV namespace for rate limiting (run once)
+wrangler kv namespace create RATE_LIMIT
+# Paste returned id into wrangler.toml [[kv_namespaces]]
+
 # Apply D1 schema (run once, then CI handles it)
-wrangler d1 migrations apply duckshort-db --remote --yes
+wrangler d1 migrations apply duckshort-db --remote
+# Note: no --yes flag — removed in wrangler v4 (auto-confirms in CI)
 ```
 
 ### Manual Deploy (without CI)
 ```bash
 # Backend
-npm run deploy
+npx wrangler deploy
 
 # Frontend
 cd frontend && npm run build
-wrangler pages deploy dist --project-name=duckshort --branch main
+cd .. && npx wrangler pages deploy frontend/dist --project-name duckshort
 ```
 
 ## Project Structure
 ```
 DuckShort/
 ├── src/                              # Backend — Cloudflare Worker (Hono.js)
-│   ├── index.tsx                     # Entry point — all route registration (14 routes)
-│   ├── types.ts                      # Env interface: DB, ADMIN_SECRET, BASE_URL
+│   ├── index.tsx                     # Entry point — routes + scheduled export for cron
+│   ├── types.ts                      # Env interface: DB, RATE_LIMIT, ADMIN_SECRET, BASE_URL
 │   ├── handlers/
 │   │   ├── admin.ts                  # getLinks, createLink, updateLink, deleteLink,
 │   │   │                             #   bulkDeleteLinks, getVariants, createVariant, deleteVariant
+│   │   ├── cleanup.ts                # cleanupExpiredLinks — DELETE expired rows (cron)
 │   │   ├── password.tsx              # showPasswordEntry, verifyPasswordEntry (SSR)
 │   │   ├── preview.tsx               # previewLink (click-through interstitial, SSR)
-│   │   ├── redirect.ts               # redirectLink (302 + UTM + A/B + webhook + analytics)
-│   │   └── stats.ts                  # getStats, getGlobalStats (with duck mood)
+│   │   ├── redirect.tsx              # redirectLink (302 + UTM + A/B + webhook + analytics)
+│   │   └── stats.ts                  # getStats, getGlobalStats (totalVisits + mood)
+│   ├── middleware/
+│   │   └── rateLimit.ts              # 20 req/hr per IP via KV; graceful skip if KV absent
 │   ├── lib/
 │   │   ├── auth.ts                   # timingSafeEqual, requireAuth, hashPassword, verifyPassword
 │   │   └── nanoid.ts                 # generateId — 8-char Base62 via nanoid
@@ -197,28 +215,28 @@ DuckShort/
 │
 ├── frontend/                         # Frontend — Cloudflare Pages (React 18 SPA)
 │   ├── public/
-│   │   ├── favicon.svg               # Neon duck SVG favicon
-│   │   ├── _redirects                # /* → /index.html 200 (SPA fallback)
-│   │   └── _headers                  # Security headers + asset caching
+│   │   ├── favicon.ico               # Duck favicon
+│   │   ├── _redirects                # Proxy rules to Worker + SPA fallback
+│   │   └── _headers                  # Security headers (/*) + Cache-Control (/assets/*)
 │   ├── src/
 │   │   ├── main.tsx                  # ReactDOM root + BrowserRouter + QueryClientProvider
 │   │   ├── App.tsx                   # Router: / → Home, * → 404
 │   │   ├── index.css                 # Tailwind v4 + neon CSS variables + utility classes
 │   │   ├── pages/
-│   │   │   └── Home.tsx              # URL shortener form + QR modal + quack counter
+│   │   │   ├── Home.tsx              # Shortener form + QR modal + quack counter + mood
+│   │   │   └── Admin.tsx             # Admin dashboard (minimal, not yet fully built)
 │   │   ├── components/
-│   │   │   └── DuckLogo.tsx          # Neon SVG duck logo component
-│   │   ├── lib/
-│   │   │   └── utils.ts              # cn() class merge helper
+│   │   │   ├── DuckLogo.tsx          # Static neon SVG duck logo
+│   │   │   ├── DuckMoodLogo.tsx      # Animated mood-aware logo (DORMANT/ACTIVE/BUSY/VIRAL/ERROR)
+│   │   │   ├── DevModeBar.tsx        # Fixed dev banner — returns null in production
+│   │   │   └── URLShortenerForm.tsx  # Extracted form component
 │   │   ├── assets/
-│   │   │   └── logo.png              # Duck mascot (circular in header)
+│   │   │   └── logo.png              # Duck mascot image
 │   │   └── __tests__/
 │   │       ├── App.test.tsx
 │   │       └── Home.test.tsx
 │   ├── index.html                    # Loads Orbitron + JetBrains Mono via Google Fonts
-│   ├── vite.config.ts                # Tailwind v4 plugin + dev proxy + vitest config
-│   ├── tailwind.config.js            # Legacy (unused by Tailwind v4, kept for reference)
-│   ├── postcss.config.js             # autoprefixer only (tailwindcss removed, handled by Vite)
+│   ├── vite.config.ts                # base: duckshort.pages.dev (prod), stable filenames, proxy
 │   └── package.json
 │
 ├── migrations/
@@ -236,8 +254,9 @@ DuckShort/
 │       └── nanoid.test.ts
 │
 ├── .github/workflows/
-│   ├── deploy-worker.yml             # typecheck → test → migrate (--yes) → deploy
-│   └── deploy-frontend.yml           # typecheck → test → build → pages deploy
+│   ├── deploy-all.yml                # push to main: worker then pages (sequential)
+│   ├── deploy-worker.yml             # workflow_dispatch: typecheck → test → migrate → deploy
+│   └── deploy-frontend.yml           # workflow_dispatch: typecheck → build → pages deploy
 │
 ├── scripts/                          # DB backup/restore helpers
 │   ├── db-backup.sh
@@ -270,6 +289,7 @@ DuckShort/
 | utm_medium | TEXT | |
 | utm_campaign | TEXT | |
 | webhook_url | TEXT | POST on each click |
+| burn_on_read | INTEGER | 0/1 — self-destructs after first redirect |
 
 ### `analytics`
 | Column | Type | Notes |
