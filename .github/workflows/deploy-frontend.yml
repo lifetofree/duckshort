@@ -36,7 +36,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: ''
+          VITE_API_URL: 'https://duckshort.chonlaphon.workers.dev'
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

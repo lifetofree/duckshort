@@ -67,7 +67,7 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
-          VITE_API_URL: ''
+          VITE_API_URL: 'https://duckshort.chonlaphon.workers.dev'
           VITE_ADMIN_SECRET: ${{ secrets.VITE_ADMIN_SECRET }}
 
       - name: Deploy to Cloudflare Pages
