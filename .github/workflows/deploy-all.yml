@@ -68,6 +68,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ''
+          VITE_ADMIN_SECRET: ${{ secrets.VITE_ADMIN_SECRET }}
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

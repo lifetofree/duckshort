@@ -52,7 +52,7 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
   const link = await c.env.DB.prepare(
     `SELECT original_url, disabled, expires_at, password_hash,
             utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read,
-            (expires_at IS NOT NULL AND expires_at < datetime('now')) as is_expired
+            (expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')) as is_expired
      FROM links WHERE id = ?`
   ).bind(id).first<LinkRow & { is_expired: number; burn_on_read: number }>()
 
