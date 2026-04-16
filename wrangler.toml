@@ -18,6 +18,10 @@ database_id = "cbb432e6-7252-461d-83ff-d792be1413fb"
 binding = "RATE_LIMIT"
 id = "8bb561a78e63471ba5d89daa37ba8fb5"
 
+[[routes]]
+pattern = "duckshort.cc/*"
+zone_name = "duckshort.cc"
+
 [triggers]
 crons = ["0 * * * *"]
 
