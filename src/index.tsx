@@ -38,21 +38,8 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - proxy index.html from Pages so asset hashes are always current
-app.get('/', async (c) => {
-  try {
-    const res = await fetch('https://duckshort.pages.dev/', {
-      headers: { 'User-Agent': 'DuckShort-Worker/1.0' },
-    })
-    const html = await res.text()
-    return c.html(html, 200, {
-      'Cache-Control': 'no-store',
-    })
-  } catch {
-    // Minimal fallback if Pages is unreachable
-    return c.html(`<!doctype html><html><head><meta charset="UTF-8"/><title>DuckShort</title></head><body><div id="root"></div></body></html>`, 503)
-  }
-})
+// Root route - dev: frontend is served by Vite on :3030
+app.get('/', (c) => c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' }))
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
