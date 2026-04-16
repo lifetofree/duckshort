@@ -52,7 +52,7 @@ app.get('/', (c) => {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="https://duckshort.pages.dev/assets/index-Bm6E2Lkg.js"></script>
+    <script type="module" crossorigin src="https://duckshort.pages.dev/assets/index-BrN49-oh.js"></script>
     <link rel="stylesheet" crossorigin href="https://duckshort.pages.dev/assets/index-BjtX5gEt.css">
   </head>
   <body>

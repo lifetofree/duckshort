@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [tailwindcss(), react()],
-    base: '/',
+    base: mode === 'production' ? 'https://duckshort.pages.dev/' : '/',
     build: {
       outDir: 'dist',
       emptyOutDir: true,
