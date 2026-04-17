@@ -1,4 +1,8 @@
+import { useTranslation } from '../lib/i18n'
+
 export default function DevModeBar() {
+  const { t: translate } = useTranslation()
+  
   if (import.meta.env.MODE !== 'development') {
     return null
   }
@@ -37,7 +41,7 @@ export default function DevModeBar() {
           animation: 'pulse 1.5s ease-in-out infinite',
         }}
       />
-      <span>DEVELOPMENT MODE</span>
+      <span>{translate('devModeBar.text')}</span>
     </div>
   )
 }

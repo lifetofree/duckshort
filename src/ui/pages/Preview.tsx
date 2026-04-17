@@ -4,11 +4,14 @@ import Layout from '../Layout'
 interface Props {
   id: string
   destination: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
 }
 
-export default function Preview({ id, destination }: Props) {
+export default function Preview({ id, destination, ogTitle, ogDescription, ogImage }: Props) {
   return (
-    <Layout title="DuckShort | Preview">
+    <Layout title={ogTitle ?? 'DuckShort | Preview'} ogDescription={ogDescription} ogImage={ogImage} ogUrl={`/preview/${id}`}>
       <div class="container" style="text-align: center; padding-top: 6rem;">
         <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem; opacity: 0.6; font-family: 'JetBrains Mono', monospace;">
           You are about to visit

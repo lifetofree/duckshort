@@ -16,10 +16,20 @@ database_id = "cbb432e6-7252-461d-83ff-d792be1413fb"
 binding = "RATE_LIMIT"
 id = "8bb561a78e63471ba5d89daa37ba8fb5"
 
+[[durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["RateLimiter"]
+
 [triggers]
 crons = ["0 * * * *"]
 
 [vars]
+# Production override: set BASE_URL via `wrangler secret put BASE_URL` or in the Cloudflare dashboard
+# under Workers > Settings > Variables. Do NOT hardcode the production domain here.
 BASE_URL = "http://localhost:8787"
 
 # ADMIN_SECRET is stored as an encrypted secret — do NOT add it here.

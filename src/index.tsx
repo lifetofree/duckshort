@@ -25,7 +25,7 @@ app.get('/api/stats/global', getGlobalStats)
 app.get('/api/stats/:id', getStats)
 app.get('/api/links', getLinks)
 app.post('/api/links', rateLimit, createLink)
-app.post('/api/links/bulk-delete', bulkDeleteLinks)
+app.post('/api/links/bulk-delete', rateLimit, bulkDeleteLinks)
 app.patch('/api/links/:id', updateLink)
 app.delete('/api/links/:id', deleteLink)
 app.get('/api/links/:id/variants', getVariants)
@@ -42,6 +42,8 @@ app.get('/:id', redirectLink)
 app.get('/', (c) => c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' }))
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
+
+export { RateLimiter } from './durableObjects/RateLimiter'
 
 export default {
   fetch: app.fetch,

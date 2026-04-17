@@ -1,6 +1,7 @@
 import type { Context } from 'hono'
 import type { Env } from '../types'
 import NotFound from '../ui/pages/NotFound'
+import { injectUtm } from '../lib/utm'
 
 interface LinkRow {
   original_url: string
@@ -28,24 +29,6 @@ function pickVariant(variants: VariantRow[]): string {
   return variants[variants.length - 1].destination_url
 }
 
-function injectUtm(
-  url: string,
-  source: string | null,
-  medium: string | null,
-  campaign: string | null
-): string {
-  if (!source && !medium && !campaign) return url
-  try {
-    const u = new URL(url)
-    if (source) u.searchParams.set('utm_source', source)
-    if (medium) u.searchParams.set('utm_medium', medium)
-    if (campaign) u.searchParams.set('utm_campaign', campaign)
-    return u.toString()
-  } catch {
-    return url
-  }
-}
-
 export async function redirectLink(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
 
@@ -65,11 +48,16 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
     return c.html(<NotFound message="LINK EXPIRED" />, 410)
   }
 
-  // Handle burn_on_read: disable link for future use
+  // Handle burn_on_read: disable link atomically for future use
   if (link.burn_on_read) {
-    c.executionCtx.waitUntil(
-      c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(id).run()
-    )
+    const result = await c.env.DB.prepare(
+      'UPDATE links SET disabled = 1 WHERE id = ? AND disabled = 0'
+    ).bind(id).run()
+    
+    // If no rows were updated, another request already disabled this link
+    if (result.meta.changes === 0) {
+      return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
+    }
   }
 
   // Password-protected: redirect to entry page
