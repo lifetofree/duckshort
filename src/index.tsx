@@ -36,7 +36,7 @@ app.delete('/api/links/variants/:variantId', deleteVariant)
 app.get('/', async (c) => {
   try {
     const res = await fetch('https://duckshort.pages.dev/')
-    return new Response(res.body, res)
+    return new Response(res.body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
   } catch {
     return c.json({ error: 'Failed to proxy to frontend' }, 502)
   }
@@ -44,8 +44,8 @@ app.get('/', async (c) => {
 
 app.get('/admin', async (c) => {
   try {
-    const res = await fetch('https://duckshort.pages.dev/admin')
-    return new Response(res.body, res)
+    const res = await fetch('https://duckshort.pages.dev/')
+    return new Response(res.body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
   } catch {
     return c.json({ error: 'Failed to proxy to frontend' }, 502)
   }
