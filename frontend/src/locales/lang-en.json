@@ -82,8 +82,108 @@
     "text": "DEVELOPMENT MODE"
   },
   "admin": {
-    "title": "Admin",
-    "comingSoon": "Coming soon — use the Worker SSR admin at <a href=\"/admin-ssr\" class=\"underline\">/admin-ssr</a>",
-    "back": "← Back"
-  }
+    "title": "ADMIN DASHBOARD",
+    "subtitle": "THE NEON POND CONTROL CENTER",
+    "back": "← BACK TO HOME",
+    "tabs": {
+      "links": "LINKS",
+      "create": "CREATE",
+      "stats": "STATS"
+    },
+    "links": {
+      "selectAll": "Select all",
+      "selected": "selected",
+      "deleteSelected": "DELETE SELECTED",
+      "refresh": "REFRESH",
+      "refreshing": "REFRESHING...",
+      "headers": {
+        "id": "ID",
+        "originalUrl": "Original URL",
+        "created": "Created",
+        "expires": "Expires",
+        "status": "Status",
+        "tag": "Tag",
+        "actions": "Actions"
+      },
+      "status": {
+        "active": "ACTIVE",
+        "disabled": "DISABLED",
+        "expired": "EXPIRED"
+      },
+      "actions": {
+        "enable": "ENABLE",
+        "disable": "DISABLE",
+        "extend": "+24H",
+        "variants": "A/B",
+        "delete": "DELETE"
+      },
+      "variants": {
+        "title": "A/B VARIANTS FOR",
+        "noVariants": "No variants configured",
+        "add": "ADD",
+        "placeholder": "Destination URL",
+        "weightPlaceholder": "Weight",
+        "delete": "DELETE"
+      }
+    },
+    "create": {
+      "title": "CREATE NEW LINK",
+      "fields": {
+        "originalUrl": "Original URL *",
+        "originalUrlPlaceholder": "https://example.com/very-long-url",
+        "customId": "Custom ID (Optional)",
+        "customIdPlaceholder": "my-custom-link",
+        "expiry": "Expiry",
+        "customExpiry": "Custom Expiry (Hours)",
+        "customExpiryPlaceholder": "24",
+        "tag": "Tag (Optional)",
+        "tagPlaceholder": "campaign-name",
+        "password": "Password (Optional)",
+        "passwordPlaceholder": "Protect with password",
+        "burnOnRead": "Burn on Read (Self-destruct)"
+      },
+      "expiryOptions": {
+        "never": "Never",
+        "1hour": "1 Hour",
+        "24hours": "24 Hours",
+        "7days": "7 Days",
+        "30days": "30 Days",
+        "custom": "Custom"
+      },
+      "utm": {
+        "title": "UTM PARAMETERS (Optional)",
+        "source": "utm_source",
+        "medium": "utm_medium",
+        "campaign": "utm_campaign"
+      },
+      "webhook": {
+        "title": "WEBHOOK (Optional)",
+        "placeholder": "https://your-webhook-endpoint.com"
+      },
+      "og": {
+        "title": "OPEN GRAPH TAGS (Optional)",
+        "titlePlaceholder": "OG Title",
+        "descriptionPlaceholder": "OG Description",
+        "imagePlaceholder": "OG Image URL"
+      },
+      "submit": "CREATE LINK",
+      "submitting": "CREATING..."
+    },
+    "stats": {
+      "totalVisits": "TOTAL VISITS",
+      "hourlyVisits": "HOURLY VISITS",
+      "systemMood": "SYSTEM MOOD"
+    }
+  },
+  "duckMood": {
+    "dormant": "DORMANT",
+    "active": "ACTIVE",
+    "busy": "BUSY",
+    "viral": "VIRAL",
+    "degraded": "DEGRADED"
+  },
+  "quackCounter": {
+    "served": "🦆 {{count}} QUACKS SERVED"
+  },
+  "poweredBy": "Powered by Adduckivity"
 }

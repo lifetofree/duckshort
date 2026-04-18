@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import HomePage from './pages/Home'
+import AdminPage from './pages/Admin'
 import DevModeBar from './components/DevModeBar'
 
 function NotFound() {
@@ -31,6 +32,7 @@ export default function App() {
       <DevModeBar />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>

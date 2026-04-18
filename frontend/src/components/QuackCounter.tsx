@@ -1,19 +1,19 @@
 import { motion } from 'motion/react'
+import { useTranslation } from '../lib/i18n'
 
 const MILESTONES = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 5_000_000, 10_000_000]
-
-function getQuackDisplay(count: number): { text: string; isMilestone: boolean } {
-  const hit = MILESTONES.find((m) => count >= m && count < m + 100) ?? null
-  const displayCount = hit ?? count
-  return { text: `🦆 ${displayCount.toLocaleString()} QUACKS SERVED`, isMilestone: hit !== null }
-}
 
 interface QuackCounterProps {
   totalVisits: number
 }
 
 export function QuackCounter({ totalVisits }: QuackCounterProps) {
-  const { text, isMilestone } = getQuackDisplay(totalVisits)
+  const { t: translate } = useTranslation()
+  
+  const hit = MILESTONES.find((m) => totalVisits >= m && totalVisits < m + 100) ?? null
+  const displayCount = hit ?? totalVisits
+  const isMilestone = hit !== null
+  
   return (
     <motion.p
       initial={{ opacity: 0 }}
@@ -31,7 +31,7 @@ export function QuackCounter({ totalVisits }: QuackCounterProps) {
         fontWeight: isMilestone ? 700 : 400,
       }}
     >
-      {text}
+      {translate('quackCounter.served', { count: displayCount.toLocaleString() })}
     </motion.p>
   )
 }

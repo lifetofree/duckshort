@@ -2,13 +2,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { I18nProvider } from '../lib/i18n'
 import HomePage from '../pages/Home'
 
 function renderHome() {
   return render(
-    <MemoryRouter>
-      <HomePage />
-    </MemoryRouter>
+    <I18nProvider>
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>
+    </I18nProvider>
   )
 }
 
@@ -35,7 +38,9 @@ describe('HomePage - Stats View', () => {
     const statsTab = screen.getByText(/view stats/i)
     await userEvent.click(statsTab)
 
-    expect(screen.getByPlaceholderText(/enter link id or url/i)).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/enter link id/i)).toBeInTheDocument()
+    })
   })
 
   it('displays stats for a valid link', async () => {
@@ -55,9 +60,10 @@ describe('HomePage - Stats View', () => {
     // Switch to stats tab
     const statsTab = screen.getByText(/view stats/i)
     await userEvent.click(statsTab)
+    await waitFor(() => expect(screen.getByPlaceholderText(/enter link id/i)).toBeInTheDocument())
 
     // Enter link ID and submit
-    const input = screen.getByPlaceholderText(/enter link id or url/i)
+    const input = screen.getByPlaceholderText(/enter link id/i)
     await userEvent.type(input, 'testlink')
     fireEvent.submit(input.closest('form')!)
 
@@ -85,9 +91,10 @@ describe('HomePage - Stats View', () => {
     // Switch to stats tab
     const statsTab = screen.getByText(/view stats/i)
     await userEvent.click(statsTab)
+    await waitFor(() => expect(screen.getByPlaceholderText(/enter link id/i)).toBeInTheDocument())
 
     // Enter full URL
-    const input = screen.getByPlaceholderText(/enter link id or url/i)
+    const input = screen.getByPlaceholderText(/enter link id/i)
     await userEvent.type(input, 'https://duckshort.cc/my-custom-link')
     fireEvent.submit(input.closest('form')!)
 
@@ -109,9 +116,10 @@ describe('HomePage - Stats View', () => {
     // Switch to stats tab
     const statsTab = screen.getByText(/view stats/i)
     await userEvent.click(statsTab)
+    await waitFor(() => expect(screen.getByPlaceholderText(/enter link id/i)).toBeInTheDocument())
 
     // Enter invalid link ID
-    const input = screen.getByPlaceholderText(/enter link id or url/i)
+    const input = screen.getByPlaceholderText(/enter link id/i)
     await userEvent.type(input, 'nonexistent')
     fireEvent.submit(input.closest('form')!)
 
@@ -128,6 +136,9 @@ describe('HomePage - QR Code Modal', () => {
     )
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ shortUrl: 'http://localhost/abc12345' }))
+    )
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ totalVisits: 1, hourlyVisits: 1, mood: 'ACTIVE' }))
     )
 
     renderHome()
@@ -151,6 +162,13 @@ describe('HomePage - QR Code Modal', () => {
     )
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ shortUrl: 'http://localhost/abc12345' }))
+    )
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ totalVisits: 1, hourlyVisits: 1, mood: 'ACTIVE' }))
+    )
+    // 4th call: setShortUrl(null) on close re-triggers useEffect([shortUrl])
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ totalVisits: 1, hourlyVisits: 1, mood: 'ACTIVE' }))
     )
 
     renderHome()
@@ -182,6 +200,9 @@ describe('HomePage - Copy to Clipboard', () => {
     )
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ shortUrl: 'http://localhost/abc12345' }))
+    )
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ totalVisits: 1, hourlyVisits: 1, mood: 'ACTIVE' }))
     )
 
     renderHome()
@@ -215,7 +236,7 @@ describe('HomePage - Burn on Read Toggle', () => {
     renderHome()
 
     // Find burn-on-read toggle
-    const burnToggle = screen.getByText(/burn on read/i)
+    const burnToggle = screen.getByText(/burn_on_read/i)
     expect(burnToggle).toBeInTheDocument()
 
     // Click to toggle
@@ -234,7 +255,7 @@ describe('HomePage - Custom Alias Input', () => {
 
     renderHome()
 
-    const customInput = screen.getByPlaceholderText(/custom alias/i)
+    const customInput = screen.getByPlaceholderText(/custom_alias/i)
     await userEvent.type(customInput, 'my-custom-alias_123')
 
     expect(customInput).toHaveValue('my-custom-alias_123')
@@ -247,7 +268,7 @@ describe('HomePage - Custom Alias Input', () => {
 
     renderHome()
 
-    const customInput = screen.getByPlaceholderText(/custom alias/i)
+    const customInput = screen.getByPlaceholderText(/custom_alias/i)
     await userEvent.type(customInput, 'my@alias#test!')
 
     // Should only contain valid characters

@@ -214,7 +214,7 @@ export default function HomePage() {
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
         style={{ fontSize: '0.6rem', letterSpacing: '3px', color: 'var(--text-secondary)', textTransform: 'uppercase', opacity: 0.5, textAlign: 'center', marginTop: '2.5rem', fontFamily: 'JetBrains Mono, monospace' }}
       >
-        {translate('home.footer', { version: __APP_VERSION__ })} - Powered by Adduckivity
+        {translate('home.footer', { version: __APP_VERSION__ })} - {translate('poweredBy')}
       </motion.p>
 
       {/* Result Modal */}
