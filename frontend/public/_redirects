@@ -3,6 +3,9 @@
 /preview/* https://duckshort.cc/preview/:splat 200
 /password/* https://duckshort.cc/password/:splat 200
 
+# Frontend-only routes (must be before /:id to avoid proxying back to Worker)
+/admin /index.html 200
+
 # Short links — proxy to Worker
 /:id https://duckshort.cc/:id 200
 
