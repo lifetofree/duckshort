@@ -15,6 +15,10 @@ Resolved items are archived in `HISTORY.md`.
 
 ## Missing Features
 
+### Additional Locales
+- **Status**: Only English (`lang-en.json`) is currently wired; locale-switching UI not built.
+- **Approach**: Extend `I18nProvider` to accept a `locale` prop, create `lang-th.json` (Thai translation template already exists in `lang-th.md`), add a language switcher component.
+
 ### Admin: search and filter
 - All links shown in creation order with no search or sort.
 - **Approach**: Add a search input and column sort on the links table.
