@@ -32,13 +32,32 @@ app.get('/api/links/:id/variants', getVariants)
 app.post('/api/links/:id/variants', createVariant)
 app.delete('/api/links/variants/:variantId', deleteVariant)
 
+// Frontend routes - proxy to Cloudflare Pages
+app.get('/', async (c) => {
+  try {
+    const res = await fetch('https://duckshort.pages.dev/')
+    return new Response(res.body, res)
+  } catch {
+    return c.json({ error: 'Failed to proxy to frontend' }, 502)
+  }
+})
+
+app.get('/admin', async (c) => {
+  try {
+    const res = await fetch('https://duckshort.pages.dev/admin')
+    return new Response(res.body, res)
+  } catch {
+    return c.json({ error: 'Failed to proxy to frontend' }, 502)
+  }
+})
+
 // Short link redirects
 app.get('/preview/:id', previewLink)
 app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Catch-all: proxy all other routes to Cloudflare Pages
+// Catch-all for other frontend routes
 app.all('*', async (c) => {
   const url = new URL(c.req.url)
   const pagesUrl = `https://duckshort.pages.dev${url.pathname}${url.search}`
