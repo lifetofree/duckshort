@@ -2,7 +2,7 @@
  * Unit tests for the i18n system (I18nProvider + useTranslation hook).
  * Tests key resolution, param substitution, and error handling.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { screen } from '@testing-library/react'
 import { render, renderHook } from '@testing-library/react'
 import { I18nProvider, useTranslation } from '../lib/i18n'
