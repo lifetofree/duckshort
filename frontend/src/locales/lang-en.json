@@ -113,7 +113,7 @@
       "actions": {
         "enable": "ENABLE",
         "disable": "DISABLE",
-        "extend": "+24H",
+        "extend": "+24H", 
         "variants": "A/B",
         "delete": "DELETE"
       },
