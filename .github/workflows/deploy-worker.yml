@@ -33,6 +33,9 @@ jobs:
       - name: Type check
         run: npx wrangler types && npx tsc --noEmit
 
+      - name: Run tests
+        run: npm run test
+
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply duckshort-db --remote
 

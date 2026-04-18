@@ -57,6 +57,9 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
     utm_medium?: string
     utm_campaign?: string
     webhook_url?: string
+    og_title?: string
+    og_description?: string
+    og_image?: string
     variants?: Array<{ destination_url: string; weight?: number }>
   }>()
 
@@ -64,8 +67,13 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   let id = body.customId?.trim() || generateId()
   
-  // If custom ID, check if it already exists
+  // If custom ID, validate format and check if it already exists
   if (body.customId) {
+    const trimmed = body.customId.trim()
+    if (!/^[a-zA-Z0-9_-]{3,50}$/.test(trimmed)) {
+      return c.json({ error: 'Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)' }, 400)
+    }
+    
     const existing = await c.env.DB.prepare(
       'SELECT id FROM links WHERE id = ?'
     ).bind(id).first()
@@ -80,8 +88,8 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   await c.env.DB.prepare(
     `INSERT INTO links
-      (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read, og_title, og_description, og_image)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
     .bind(
       id,
@@ -94,7 +102,10 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
       body.utm_medium ?? null,
       body.utm_campaign ?? null,
       body.webhook_url ?? null,
-      body.burn_on_read ? 1 : 0
+      body.burn_on_read ? 1 : 0,
+      body.og_title ?? null,
+      body.og_description ?? null,
+      body.og_image ?? null,
     )
     .run()
 

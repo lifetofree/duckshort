@@ -2,6 +2,35 @@
 
 All notable changes to the DuckShort project will be documented in this file.
 
+## [1.3.0] - 2026-04-17
+
+### Added
+- **OG Tag Customization:** New `og_title`, `og_description`, `og_image` columns on `links` (migration `0005_og_tags.sql`). `POST /api/links` accepts these fields; `GET /preview/:id` fetches and passes them to the SSR `Preview.tsx` template. `Layout.tsx` injects `<meta property="og:*">` and `<meta name="description">` tags into the `<head>`.
+- **Custom Expiration Input:** "CUSTOM" option added to the expiry dropdown in `ShortenForm.tsx`. Selecting it reveals a numeric input (hours). `Home.tsx` converts the custom hours to seconds before sending `expiresIn` to the API.
+- **Stats Pagination:** `GET /api/stats/:id` now accepts an optional `?limit=N` query parameter (1–100, default 10) controlling how many top countries and referrers are returned.
+- **Rate Limiter Durable Object:** `src/durableObjects/RateLimiter.ts` implements atomic per-IP rate limiting using `storage.transaction()`. Replaces the non-atomic KV read-check-write in `src/middleware/rateLimit.ts`. Binding and migration added to `wrangler.toml`.
+- **Shared UTM Utility:** `src/lib/utm.ts` exports a single `injectUtm()` function used by both `redirect.tsx` and `password.tsx`, eliminating the duplicated implementation.
+- **Performance Indexes:** Migration `0004_performance_indexes.sql` adds indexes on `links(created_at DESC, disabled)`, `links(tag)`, and `analytics(link_id, timestamp)`.
+- **Auto-Version Footer:** Frontend footer now shows the actual `package.json` version via Vite's `define` (`__APP_VERSION__`). `lang-en.json` footer key changed from `"V1.0.0-PROTOTYPE"` to `"V{{version}}"`.
+- **Extracted Frontend Components:** `Home.tsx` (formerly ~860 lines) split into `QuackCounter.tsx`, `ShortenForm.tsx`, `StatsView.tsx`, `ResultModal.tsx`, and `frontend/src/types.ts` (shared `StatsData` interface).
+- **New Backend Tests:** `test/handlers/password.test.ts` (6 tests covering 404/disabled/expired/HTML form/wrong password/correct password) and `test/handlers/preview.test.ts` (5 tests covering 404/disabled/expired/destination display/OG tags).
+- **i18n Keys:** Added `home.shortenForm.expiryOptions.custom` and `home.shortenForm.customExpiryPlaceholder` to `lang-en.json`.
+
+### Fixed
+- **Expiry Comparison Bug in Password & Preview Handlers:** `expires_at < datetime('now')` was a raw string comparison. JavaScript's `new Date().toISOString()` stores dates with a `T` separator (`2026-04-17T12:00:00.000Z`) while SQLite's `datetime('now')` uses a space (`2026-04-17 12:00:00`). Because `T` > ` ` in ASCII, ISO-format dates always compared as "in the future". Fixed in both `password.tsx` queries and `preview.tsx` by wrapping: `datetime(expires_at) < datetime('now')`.
+- **A/B Variants Ignored on Password-Protected Links:** `verifyPasswordEntry` always redirected to `original_url`. Ported the `pickVariant()` call and `link_variants` query from `redirect.tsx` into `password.tsx`.
+- **Redundant DB Query in Password Handler:** `verifyPasswordEntry` issued a second `SELECT webhook_url FROM links` that duplicated data from the first query. Merged `webhook_url` and `burn_on_read` into the initial SELECT.
+- **Bulk-Delete Lacks Rate Limiting:** `POST /api/links/bulk-delete` now has the `rateLimit` middleware applied, matching all other mutating routes.
+- **`password_hash` / `webhook_url` Exposed in Stats:** `src/handlers/stats.ts` used `SELECT *`, leaking sensitive columns. Replaced with an explicit column whitelist. Regression tests added to `test/handlers/stats.test.ts`.
+- **`DuckMood` Unused Import:** Removed `{ type DuckMood }` from `frontend/src/__tests__/DuckMoodLogo.test.tsx` (TS error 6133).
+- **`__APP_VERSION__` Not Found:** Added `declare const __APP_VERSION__: string` to `frontend/src/vite-env.d.ts`.
+
+### Changed
+- **Rate Limiting Backend:** `src/middleware/rateLimit.ts` now calls a Durable Object stub instead of doing KV read-check-write. `RATE_LIMITER` binding added to `src/types.ts` and `wrangler.toml`. Graceful fallback if binding absent.
+- **`@tanstack/react-query` Removed:** Package uninstalled; `QueryClientProvider` wrapper removed from `main.tsx` and all three frontend test files.
+- **`.gitignore` Expanded:** Changed `.env` + `.env.local` to `.env` + `.env.*` to cover all env variant files (`.env.production`, `.env.staging`, etc.).
+- **Dead Code Deleted:** `src/ui/pages/Home.tsx` and `src/ui/pages/Admin.tsx` — SSR pages with no routes and broken asset references — deleted. `frontend/src/components/URLShortenerForm.tsx` (TSX placeholder with hardcoded strings) also deleted.
+
 ## [1.2.0] - 2026-04-16
 
 ### Added

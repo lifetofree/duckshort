@@ -1,7 +1,9 @@
 import React from 'react';
+import { useTranslation } from '../lib/i18n';
 import './Modal.css';
 
 const Modal = ({ isOpen, shortUrl, onClose, onCopy, copySuccess }) => {
+  const { t: translate } = useTranslation();
   if (!isOpen) return null;
 
   return (
@@ -12,12 +14,12 @@ const Modal = ({ isOpen, shortUrl, onClose, onCopy, copySuccess }) => {
         </button>
 
         <div className="modal-header">
-          <h2 className="modal-title">Fragment Created</h2>
+          <h2 className="modal-title">{translate('modal.title')}</h2>
         </div>
 
         <div className="modal-body">
           <div>
-            <p className="modal-label">Shortened URL</p>
+            <p className="modal-label">{translate('modal.label')}</p>
             <div className="short-url-container">
               <input
                 type="text"
@@ -35,16 +37,16 @@ const Modal = ({ isOpen, shortUrl, onClose, onCopy, copySuccess }) => {
             <span className="material-symbols-outlined">
               {copySuccess ? 'check' : 'content_copy'}
             </span>
-            <span>{copySuccess ? 'Copied!' : 'Copy to Clipboard'}</span>
+            <span>{copySuccess ? translate('modal.copied') : translate('modal.copyToClipboard')}</span>
           </button>
         </div>
 
         <div className="modal-status-bar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span className="status-dot"></span>
-            <span>Transfer_Complete</span>
+            <span>{translate('modal.status.transferComplete')}</span>
           </div>
-          <span>Channel_Secured</span>
+          <span>{translate('modal.status.channelSecured')}</span>
         </div>
       </div>
     </div>

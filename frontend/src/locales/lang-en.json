@@ -1,0 +1,189 @@
+{
+  "common": {
+    "close": "CLOSE",
+    "copy": "COPY",
+    "copied": "COPIED!",
+    "loading": "PROCESSING...",
+    "error": "Error",
+    "go": "GO",
+    "back": "← Back"
+  },
+  "home": {
+    "title": {
+      "duck": "DUCK",
+      "short": "SHORT"
+    },
+    "tagline": "REDIRECTING AT THE SPEED OF LIGHT",
+    "quacksServed": "🦆 {{count}} QUACKS SERVED",
+    "tabs": {
+      "shorten": "SHORTEN",
+      "viewStats": "VIEW STATS"
+    },
+    "shortenForm": {
+      "urlPlaceholder": "PASTE YOUR LONG URL HERE...",
+      "customAliasPlaceholder": "CUSTOM_ALIAS (OPTIONAL)...",
+      "expiry": "EXPIRY:",
+      "expiryOptions": {
+        "never": "NEVER",
+        "1hour": "1 HOUR",
+        "24hours": "24 HOURS",
+        "7days": "7 DAYS",
+        "30days": "30 DAYS",
+        "custom": "CUSTOM"
+      },
+      "customExpiryPlaceholder": "HOURS...",
+      "burnOnRead": "BURN_ON_READ (SELF-DESTRUCT)",
+      "button": "SHORTEN!",
+      "errors": {
+        "invalidUrl": "Invalid URL format",
+        "invalidCustomId": "Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)",
+        "networkError": "Network error. Is the backend running?",
+        "failedToShorten": "Error {{status}}: Failed to shorten"
+      }
+    },
+    "statsForm": {
+      "placeholder": "ENTER LINK ID OR SHORT CODE...",
+      "button": "GO",
+      "error": "Network error."
+    },
+    "stats": {
+      "totalVisits": "TOTAL VISITS",
+      "topCountries": "TOP COUNTRIES",
+      "topReferrers": "TOP REFERRERS"
+    },
+    "footer": "V{{version}}",
+    "modal": {
+      "title": "LINK CREATED",
+      "yourShortUrl": "YOUR SHORT URL",
+      "copyToClipboard": "COPY TO CLIPBOARD",
+      "transferComplete": "Transfer_Complete"
+    }
+  },
+  "urlShortenerForm": {
+    "label": "SOURCE_URL_INPUT",
+    "placeholder": "https://secure.standard.net/tracking/...",
+    "button": "EXECUTE FRAGMENTATION",
+    "status": {
+      "ready": "SYSTEM_READY",
+      "encrypted": "ENCRYPTED_CHANNEL_V2"
+    }
+  },
+  "modal": {
+    "title": "Fragment Created",
+    "label": "Shortened URL",
+    "copyToClipboard": "Copy to Clipboard",
+    "copied": "Copied!",
+    "status": {
+      "transferComplete": "Transfer_Complete",
+      "channelSecured": "Channel_Secured"
+    }
+  },
+  "devModeBar": {
+    "text": "DEVELOPMENT MODE"
+  },
+  "admin": {
+    "title": "ADMIN DASHBOARD",
+    "subtitle": "THE NEON POND CONTROL CENTER",
+    "back": "← BACK TO HOME",
+    "tabs": {
+      "links": "LINKS",
+      "create": "CREATE",
+      "stats": "STATS"
+    },
+    "links": {
+      "selectAll": "Select all",
+      "selected": "selected",
+      "deleteSelected": "DELETE SELECTED",
+      "refresh": "REFRESH",
+      "refreshing": "REFRESHING...",
+      "headers": {
+        "id": "ID",
+        "originalUrl": "Original URL",
+        "created": "Created",
+        "expires": "Expires",
+        "status": "Status",
+        "tag": "Tag",
+        "actions": "Actions"
+      },
+      "status": {
+        "active": "ACTIVE",
+        "disabled": "DISABLED",
+        "expired": "EXPIRED"
+      },
+      "actions": {
+        "enable": "ENABLE",
+        "disable": "DISABLE",
+        "extend": "+24H",
+        "variants": "A/B",
+        "delete": "DELETE"
+      },
+      "variants": {
+        "title": "A/B VARIANTS FOR",
+        "noVariants": "No variants configured",
+        "add": "ADD",
+        "placeholder": "Destination URL",
+        "weightPlaceholder": "Weight",
+        "delete": "DELETE"
+      }
+    },
+    "create": {
+      "title": "CREATE NEW LINK",
+      "fields": {
+        "originalUrl": "Original URL *",
+        "originalUrlPlaceholder": "https://example.com/very-long-url",
+        "customId": "Custom ID (Optional)",
+        "customIdPlaceholder": "my-custom-link",
+        "expiry": "Expiry",
+        "customExpiry": "Custom Expiry (Hours)",
+        "customExpiryPlaceholder": "24",
+        "tag": "Tag (Optional)",
+        "tagPlaceholder": "campaign-name",
+        "password": "Password (Optional)",
+        "passwordPlaceholder": "Protect with password",
+        "burnOnRead": "Burn on Read (Self-destruct)"
+      },
+      "expiryOptions": {
+        "never": "Never",
+        "1hour": "1 Hour",
+        "24hours": "24 Hours",
+        "7days": "7 Days",
+        "30days": "30 Days",
+        "custom": "Custom"
+      },
+      "utm": {
+        "title": "UTM PARAMETERS (Optional)",
+        "source": "utm_source",
+        "medium": "utm_medium",
+        "campaign": "utm_campaign"
+      },
+      "webhook": {
+        "title": "WEBHOOK (Optional)",
+        "placeholder": "https://your-webhook-endpoint.com"
+      },
+      "og": {
+        "title": "OPEN GRAPH TAGS (Optional)",
+        "titlePlaceholder": "OG Title",
+        "descriptionPlaceholder": "OG Description",
+        "imagePlaceholder": "OG Image URL"
+      },
+      "submit": "CREATE LINK",
+      "submitting": "CREATING..."
+    },
+    "stats": {
+      "totalVisits": "TOTAL VISITS",
+      "hourlyVisits": "HOURLY VISITS",
+      "systemMood": "SYSTEM MOOD"
+    }
+  },
+  "duckMood": {
+    "dormant": "DORMANT",
+    "active": "ACTIVE",
+    "busy": "BUSY",
+    "viral": "VIRAL",
+    "degraded": "DEGRADED"
+  },
+  "quackCounter": {
+    "served": "🦆 {{count}} QUACKS SERVED"
+  },
+  "poweredBy": "Powered by Adduckivity"
+}

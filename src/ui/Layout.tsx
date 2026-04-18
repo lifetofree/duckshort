@@ -1,19 +1,26 @@
 /** @jsxImportSource hono/jsx */
-import config from './config.json'
 
 interface Props {
   title: string
+  ogDescription?: string
+  ogImage?: string
+  ogUrl?: string
   children?: any
 }
 
-export default function Layout({ title, children }: Props) {
-  const { theme } = config
+export default function Layout({ title, ogDescription, ogImage, ogUrl, children }: Props) {
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{title}</title>
+        <meta property="og:title" content={title} />
+        <meta property="og:type" content="website" />
+        {ogDescription && <meta property="og:description" content={ogDescription} />}
+        {ogImage && <meta property="og:image" content={ogImage} />}
+        {ogUrl && <meta property="og:url" content={ogUrl} />}
+        {ogDescription && <meta name="description" content={ogDescription} />}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />

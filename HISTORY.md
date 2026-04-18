@@ -4,6 +4,63 @@ Archive of completed features, bug fixes, and security improvements.
 
 ---
 
+## v1.3.0 Enhancements & Fixes (2026-04-17)
+
+### ✅ OG Tag Customization
+- **Resolved**: Migration `0005_og_tags.sql` adds `og_title`, `og_description`, `og_image` to `links`. `createLink` accepts these fields. Preview handler fetches and passes them to SSR. `Layout.tsx` renders `<meta property="og:*">` tags.
+
+### ✅ Custom Expiration Input
+- **Resolved**: "CUSTOM" option in `ShortenForm.tsx` expiry dropdown reveals a numeric hours input. `Home.tsx` computes `expiresIn` accordingly.
+
+### ✅ Stats Pagination
+- **Resolved**: `GET /api/stats/:id` accepts `?limit=N` (1–100, default 10) for country and referrer result counts.
+
+### ✅ Atomic Rate Limiting via Durable Object
+- **Resolved**: `src/durableObjects/RateLimiter.ts` uses `storage.transaction()` to atomically check-and-increment per-IP counters, eliminating the KV read-check-write race condition.
+
+### ✅ Shared UTM Utility
+- **Resolved**: `injectUtm()` extracted to `src/lib/utm.ts`, imported by both `redirect.tsx` and `password.tsx`.
+
+### ✅ Performance Indexes
+- **Resolved**: Migration `0004_performance_indexes.sql` adds three indexes for admin list, tag filter, and analytics queries.
+
+### ✅ Expiry Comparison Bug in Password & Preview Handlers
+- **Fixed in**: `src/handlers/password.tsx`, `src/handlers/preview.tsx`
+- ISO 8601 `T`-separator vs SQLite space-separator caused all dates to compare as "future". Wrapped with `datetime(expires_at)` to normalize before comparison.
+
+### ✅ A/B Variants Ignored on Password-Protected Links
+- **Fixed in**: `src/handlers/password.tsx`
+- `verifyPasswordEntry` now runs `pickVariant()` against `link_variants` after password verification, matching `redirect.tsx` behavior.
+
+### ✅ Redundant DB Query in Password Handler
+- **Fixed in**: `src/handlers/password.tsx`
+- Merged `webhook_url` and `burn_on_read` into the initial SELECT, eliminating the second query.
+
+### ✅ Bulk-Delete Has No Rate Limiting
+- **Fixed in**: `src/index.tsx`
+- Added `rateLimit` middleware to `POST /api/links/bulk-delete`.
+
+### ✅ `password_hash` / `webhook_url` Exposed in Stats
+- **Fixed in**: `src/handlers/stats.ts`
+- Replaced `SELECT *` with an explicit column whitelist. Regression tests added.
+
+### ✅ Extracted Frontend Components
+- **Resolved**: `Home.tsx` split into `QuackCounter.tsx`, `ShortenForm.tsx`, `StatsView.tsx`, `ResultModal.tsx`, and `frontend/src/types.ts`.
+
+### ✅ Auto-Version Footer
+- **Resolved**: `__APP_VERSION__` injected by Vite from `package.json`; footer key updated to `"V{{version}}"`.
+
+### ✅ `@tanstack/react-query` Removed
+- **Resolved**: Package uninstalled; `QueryClientProvider` removed from `main.tsx` and all frontend test files.
+
+### ✅ Dead Code Deleted
+- **Resolved**: `src/ui/pages/Home.tsx`, `src/ui/pages/Admin.tsx` (unrouted SSR pages with broken asset refs), and `frontend/src/components/URLShortenerForm.tsx` (hardcoded-string placeholder) deleted.
+
+### ✅ New Test Coverage
+- **Resolved**: `test/handlers/password.test.ts` (6 tests), `test/handlers/preview.test.ts` (5 tests). All 75 backend tests pass.
+
+---
+
 ## v1.1.0 Enhancements (2026-04-16)
 
 ### ✅ Custom Pond Aliases (Vanity URLs)

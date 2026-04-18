@@ -1,4 +1,5 @@
 import { motion } from 'motion/react'
+import { useTranslation } from '../lib/i18n'
 import logo from '../assets/logo.png'
 
 export type DuckMood = 'DORMANT' | 'ACTIVE' | 'BUSY' | 'VIRAL' | 'ERROR'
@@ -10,7 +11,7 @@ interface DuckMoodLogoProps {
 const MOOD_CONFIG: Record<
   DuckMood,
   {
-    label: string
+    key: string
     labelColor: string
     dotColor: string
     borderColor: string
@@ -21,21 +22,21 @@ const MOOD_CONFIG: Record<
   }
 > = {
   DORMANT: {
-    label: 'DORMANT',
+    key: 'duckMood.dormant',
     labelColor: 'var(--text-secondary)',
     dotColor: '#4a4a5e',
     borderColor: 'rgba(100, 100, 140, 0.35)',
     glow: '0 0 10px rgba(100, 100, 140, 0.2)',
   },
   ACTIVE: {
-    label: 'ACTIVE',
+    key: 'duckMood.active',
     labelColor: 'var(--neon-cyan)',
     dotColor: 'var(--neon-cyan)',
     borderColor: 'rgba(0, 242, 255, 0.45)',
     glow: '0 0 18px rgba(0, 242, 255, 0.4), 0 0 50px rgba(0, 242, 255, 0.15)',
   },
   BUSY: {
-    label: 'BUSY',
+    key: 'duckMood.busy',
     labelColor: '#f5c518',
     dotColor: '#f5c518',
     borderColor: 'rgba(245, 197, 24, 0.55)',
@@ -43,7 +44,7 @@ const MOOD_CONFIG: Record<
     badge: '😎',
   },
   VIRAL: {
-    label: 'VIRAL',
+    key: 'duckMood.viral',
     labelColor: 'var(--neon-magenta)',
     dotColor: 'var(--neon-magenta)',
     borderColor: 'rgba(255, 0, 255, 0.6)',
@@ -52,7 +53,7 @@ const MOOD_CONFIG: Record<
     pulse: true,
   },
   ERROR: {
-    label: 'DEGRADED',
+    key: 'duckMood.degraded',
     labelColor: 'var(--error)',
     dotColor: 'var(--error)',
     borderColor: 'rgba(255, 60, 80, 0.45)',
@@ -63,6 +64,7 @@ const MOOD_CONFIG: Record<
 }
 
 export default function DuckMoodLogo({ mood }: DuckMoodLogoProps) {
+  const { t: translate } = useTranslation()
   const cfg = MOOD_CONFIG[mood]
 
   return (
@@ -148,7 +150,7 @@ export default function DuckMoodLogo({ mood }: DuckMoodLogoProps) {
             fontWeight: 600,
           }}
         >
-          {cfg.label}
+          {translate(cfg.key)}
         </span>
       </motion.div>
     </div>
