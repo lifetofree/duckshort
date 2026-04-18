@@ -5,6 +5,9 @@ All notable changes to the DuckShort project will be documented in this file.
 ## [1.3.0] - 2026-04-17
 
 ### Added
+- **i18n for Duck Mood Labels and Quack Counter:** Extracted hardcoded static text from `DuckMoodLogo.tsx` and `QuackCounter.tsx` into i18n translation keys. `DuckMoodLogo` now uses `duckMood.dormant/active/busy/viral/degraded`; `QuackCounter` uses `quackCounter.served` with `{{count}}` interpolation. New keys added to `lang-en.json`.
+- **Powered By i18n:** "Powered by Adduckivity" in `Home.tsx` footer extracted to `poweredBy` translation key.
+- **Thai Translation Template:** Created `frontend/src/locales/lang-th.md` containing all static text extracted from frontend components, organized by i18n structure, ready for locale file creation when i18n system supports locale switching.
 - **OG Tag Customization:** New `og_title`, `og_description`, `og_image` columns on `links` (migration `0005_og_tags.sql`). `POST /api/links` accepts these fields; `GET /preview/:id` fetches and passes them to the SSR `Preview.tsx` template. `Layout.tsx` injects `<meta property="og:*">` and `<meta name="description">` tags into the `<head>`.
 - **Custom Expiration Input:** "CUSTOM" option added to the expiry dropdown in `ShortenForm.tsx`. Selecting it reveals a numeric input (hours). `Home.tsx` converts the custom hours to seconds before sending `expiresIn` to the API.
 - **Stats Pagination:** `GET /api/stats/:id` now accepts an optional `?limit=N` query parameter (1–100, default 10) controlling how many top countries and referrers are returned.
