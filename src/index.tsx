@@ -38,17 +38,31 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - proxy Pages in production, fallback JSON in local dev
-app.get('/', async (c) => {
-  const baseUrl = c.env.BASE_URL
-  if (baseUrl && !baseUrl.includes('localhost')) {
-    const res = await fetch('https://duckshort.pages.dev/')
-    return new Response(res.body, res)
+// Catch-all: proxy all other routes to Cloudflare Pages
+app.all('*', async (c) => {
+  const url = new URL(c.req.url)
+  const pagesUrl = `https://duckshort.pages.dev${url.pathname}${url.search}`
+  
+  try {
+    const response = await fetch(pagesUrl, {
+      method: c.req.method,
+      headers: c.req.header(),
+      body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.text() : undefined,
+    })
+    
+    const body = await response.text()
+    
+    return new Response(body, {
+      status: response.status,
+      headers: {
+        'Content-Type': response.headers.get('Content-Type') || 'text/html',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    })
+  } catch (err) {
+    return c.json({ error: 'Failed to proxy to frontend' }, 502)
   }
-  return c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' })
 })
-
-app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
 export { RateLimiter } from './durableObjects/RateLimiter'
 
