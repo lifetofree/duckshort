@@ -37,3 +37,7 @@ BASE_URL = "https://duckshort.cc"
 
 [observability]
 enabled = true
+
+[[routes]]
+pattern = "duckshort.cc/*"
+zone_name = "duckshort.cc"
