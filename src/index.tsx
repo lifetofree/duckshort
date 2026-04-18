@@ -38,8 +38,15 @@ app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
 app.get('/:id', redirectLink)
 
-// Root route - dev: frontend is served by Vite on :3030
-app.get('/', (c) => c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' }))
+// Root route - proxy Pages in production, fallback JSON in local dev
+app.get('/', async (c) => {
+  const baseUrl = c.env.BASE_URL
+  if (baseUrl && !baseUrl.includes('localhost')) {
+    const res = await fetch('https://duckshort.pages.dev/')
+    return new Response(res.body, res)
+  }
+  return c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' })
+})
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
