@@ -32,7 +32,7 @@ export default function App() {
       <DevModeBar />
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/management/admin" element={<AdminPage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
