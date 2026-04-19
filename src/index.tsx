@@ -41,6 +41,13 @@ app.get('/:id', redirectLink)
 // Root route - dev: frontend is served by Vite on :3030
 app.get('/', (c) => c.json({ ok: true, service: 'DuckShort API', hint: 'Frontend runs on http://localhost:3030' }))
 
+// Proxy /management/* to Pages SPA (e.g. /management/admin)
+app.get('/management/*', async (c) => {
+  const url = new URL(c.req.url)
+  url.hostname = 'duckshort.pages.dev'
+  return fetch(url.toString(), { headers: c.req.raw.headers })
+})
+
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
 export { RateLimiter } from './durableObjects/RateLimiter'
