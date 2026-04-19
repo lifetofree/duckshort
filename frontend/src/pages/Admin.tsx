@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 const API = import.meta.env.VITE_API_URL ?? ''
-const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
+const ADMIN_SECRET = (window as any).__ADMIN_SECRET__ ?? import.meta.env.VITE_ADMIN_SECRET ?? ''
 
 interface Link {
   id: string
