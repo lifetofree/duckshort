@@ -32,6 +32,9 @@ app.get('/api/links/:id/variants', getVariants)
 app.post('/api/links/:id/variants', createVariant)
 app.delete('/api/links/variants/:variantId', deleteVariant)
 
+// Redirect legacy /admin to new location
+app.get('/admin', (c) => c.redirect('/management/admin', 301))
+
 // Short link redirects
 app.get('/preview/:id', previewLink)
 app.get('/password/:id', showPasswordEntry)
