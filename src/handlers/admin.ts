@@ -70,8 +70,8 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
   // If custom ID, validate format and check if it already exists
   if (body.customId) {
     const trimmed = body.customId.trim()
-    if (!/^[a-zA-Z0-9_-]{3,50}$/.test(trimmed)) {
-      return c.json({ error: 'Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)' }, 400)
+    if (!/^[a-zA-Z0-9_-]{3,20}$/.test(trimmed)) {
+      return c.json({ error: 'Custom ID must be 3-20 characters (alphanumeric, underscore, hyphen)' }, 400)
     }
     
     const existing = await c.env.DB.prepare(

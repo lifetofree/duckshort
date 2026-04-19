@@ -176,11 +176,11 @@ describe('Custom ID (Vanity URL) Functionality', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('3-50 characters')
+    expect(body.error).toContain('3-20 characters')
   })
 
-  it('rejects custom ID that is too long (more than 50 characters)', async () => {
-    const longId = 'a'.repeat(51)
+  it('rejects custom ID that is too long (more than 20 characters)', async () => {
+    const longId = 'a'.repeat(21)
     const res = await req('/api/links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
@@ -192,7 +192,7 @@ describe('Custom ID (Vanity URL) Functionality', () => {
 
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toContain('3-50 characters')
+    expect(body.error).toContain('3-20 characters')
   })
 
   it('rejects custom ID with invalid characters', async () => {
