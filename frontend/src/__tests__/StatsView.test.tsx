@@ -3,7 +3,7 @@
  * Tests the form, error states, and stats display sections.
  */
 import { describe, it, expect, vi } from 'vitest'
-import { screen, fireEvent } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StatsView } from '../components/StatsView'
 import { renderWithProviders } from '../test/renderWithProviders'

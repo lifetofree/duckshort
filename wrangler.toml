@@ -22,7 +22,7 @@ class_name = "RateLimiter"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["RateLimiter"]
+new_sqlite_classes = ["RateLimiter"]
 
 [triggers]
 crons = ["0 * * * *"]
@@ -30,10 +30,14 @@ crons = ["0 * * * *"]
 [vars]
 # Production override: set BASE_URL via `wrangler secret put BASE_URL` or in the Cloudflare dashboard
 # under Workers > Settings > Variables. Do NOT hardcode the production domain here.
-BASE_URL = "http://localhost:8787"
+BASE_URL = "https://duckshort.cc"
 
 # ADMIN_SECRET is stored as an encrypted secret — do NOT add it here.
 # Run once to set it: wrangler secret put ADMIN_SECRET
 
 [observability]
 enabled = true
+
+[[routes]]
+pattern = "duckshort.cc/*"
+zone_name = "duckshort.cc"
