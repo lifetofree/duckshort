@@ -40,6 +40,9 @@ interface CreateLinkFormData {
 }
 
 export default function AdminPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loginInput, setLoginInput] = useState('')
+  const [loginError, setLoginError] = useState<string | null>(null)
   const [tab, setTab] = useState<AdminTab>('links')
   const [links, setLinks] = useState<Link[]>([])
   const [loading, setLoading] = useState(false)
@@ -75,9 +78,32 @@ export default function AdminPage() {
     { label: 'Custom', value: -1 },
   ]
 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (loginInput === ADMIN_SECRET) {
+      setIsAuthenticated(true)
+      localStorage.setItem('admin_authenticated', 'true')
+      setLoginError(null)
+      fetchLinks()
+      fetchGlobalStats()
+    } else {
+      setLoginError('Invalid admin secret')
+    }
+  }
+
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    localStorage.removeItem('admin_authenticated')
+    setLoginInput('')
+  }
+
   useEffect(() => {
-    fetchLinks()
-    fetchGlobalStats()
+    const storedAuth = localStorage.getItem('admin_authenticated')
+    if (storedAuth === 'true') {
+      setIsAuthenticated(true)
+      fetchLinks()
+      fetchGlobalStats()
+    }
   }, [])
 
   const fetchLinks = async () => {
@@ -314,7 +340,78 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem', fontFamily: 'JetBrains Mono, monospace' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      {!isAuthenticated ? (
+        <div style={{ maxWidth: '400px', margin: '0 auto', paddingTop: '4rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h1 style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '1.5rem', color: 'var(--neon-cyan)', marginBottom: '0.5rem' }}>
+              ADMIN ACCESS
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', letterSpacing: '2px' }}>
+              ENTER THE NEON POND CONTROL CENTER
+            </p>
+          </div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', color: 'var(--text-secondary)', fontSize: '0.65rem', letterSpacing: '2px', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
+                Admin Secret
+              </label>
+              <input
+                type="password"
+                value={loginInput}
+                onChange={(e) => setLoginInput(e.target.value)}
+                placeholder="Enter admin secret"
+                required
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid rgba(0, 242, 255, 0.2)',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: '0.75rem',
+                  borderRadius: '8px',
+                  outline: 'none',
+                }}
+                onFocus={(e) => e.target.style.borderColor = 'var(--neon-cyan)'}
+                onBlur={(e) => e.target.style.borderColor = 'rgba(0, 242, 255, 0.2)'}
+              />
+            </div>
+            {loginError && (
+              <div style={{ background: 'rgba(255, 0, 85, 0.1)', border: '1px solid var(--neon-magenta)', padding: '0.75rem', borderRadius: '8px', color: 'var(--neon-magenta)', fontSize: '0.7rem' }}>
+                {loginError}
+              </div>
+            )}
+            <button
+              type="submit"
+              style={{
+                padding: '0.85rem',
+                background: 'var(--neon-cyan)',
+                border: 'none',
+                color: '#000',
+                fontFamily: 'Orbitron, sans-serif',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 242, 255, 0.5)'}
+              onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+            >
+              ENTER
+            </button>
+          </form>
+          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+            <a href="/" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '0.7rem', letterSpacing: '1px' }}>
+              ← BACK TO HOME
+            </a>
+          </div>
+        </div>
+      ) : (
+        <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h1 style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '2rem', color: 'var(--neon-cyan)', margin: 0 }}>
@@ -333,6 +430,23 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
+            <button
+              onClick={handleLogout}
+              style={{
+                color: 'var(--neon-magenta)',
+                textDecoration: 'none',
+                fontSize: '0.75rem',
+                letterSpacing: '2px',
+                border: '1px solid var(--neon-magenta)',
+                background: 'transparent',
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontFamily: 'JetBrains Mono, monospace',
+              }}
+            >
+              LOGOUT
+            </button>
             <a href="/" style={{ color: 'var(--neon-cyan)', textDecoration: 'none', fontSize: '0.75rem', letterSpacing: '2px', border: '1px solid var(--neon-cyan)', padding: '0.5rem 1rem', borderRadius: '8px' }}>
               ← BACK TO HOME
             </a>
@@ -1002,6 +1116,7 @@ export default function AdminPage() {
           )}
         </AnimatePresence>
       </div>
+      )}
     </div>
   )
 }
