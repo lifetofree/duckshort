@@ -4,7 +4,7 @@ import { requireAuth, hashPassword } from '../lib/auth'
 import { generateId } from '../lib/nanoid'
 
 export async function getLinks(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const links = await c.env.DB.prepare(
@@ -43,7 +43,7 @@ export async function getLinks(c: Context<{ Bindings: Env }>) {
 }
 
 export async function createLink(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const body = await c.req.json<{
@@ -123,7 +123,7 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 }
 
 export async function updateLink(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { id } = c.req.param()
@@ -166,7 +166,7 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
 }
 
 export async function deleteLink(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { id } = c.req.param()
@@ -175,7 +175,7 @@ export async function deleteLink(c: Context<{ Bindings: Env }>) {
 }
 
 export async function bulkDeleteLinks(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { ids } = await c.req.json<{ ids: string[] }>()
@@ -191,7 +191,7 @@ export async function bulkDeleteLinks(c: Context<{ Bindings: Env }>) {
 }
 
 export async function getVariants(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { id } = c.req.param()
@@ -202,7 +202,7 @@ export async function getVariants(c: Context<{ Bindings: Env }>) {
 }
 
 export async function createVariant(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { id } = c.req.param()
@@ -220,7 +220,7 @@ export async function createVariant(c: Context<{ Bindings: Env }>) {
 }
 
 export async function deleteVariant(c: Context<{ Bindings: Env }>) {
-  const auth = await requireAuth(c.env, c.req.header('Authorization'))
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const { variantId } = c.req.param()

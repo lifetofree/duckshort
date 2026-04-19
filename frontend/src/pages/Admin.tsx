@@ -2,10 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 const API = import.meta.env.VITE_API_URL ?? ''
-
-function getStoredSecret(): string {
-  return (window as any).__ADMIN_SECRET__ || import.meta.env.VITE_ADMIN_SECRET || sessionStorage.getItem('admin_secret') || ''
-}
+const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
 
 interface Link {
   id: string
@@ -43,8 +40,6 @@ interface CreateLinkFormData {
 }
 
 export default function AdminPage() {
-  const [adminSecret, setAdminSecret] = useState(getStoredSecret)
-  const [secretInput, setSecretInput] = useState('')
   const [tab, setTab] = useState<AdminTab>('links')
   const [links, setLinks] = useState<Link[]>([])
   const [loading, setLoading] = useState(false)
@@ -81,17 +76,16 @@ export default function AdminPage() {
   ]
 
   useEffect(() => {
-    if (!adminSecret) return
     fetchLinks()
     fetchGlobalStats()
-  }, [adminSecret])
+  }, [])
 
   const fetchLinks = async () => {
     setLoading(true)
     setError(null)
     try {
       const res = await fetch(`${API}/api/links`, {
-        headers: { Authorization: `Bearer ${adminSecret}` }
+        headers: { Authorization: `Bearer ${ADMIN_SECRET}` }
       })
       if (!res.ok) throw new Error('Failed to fetch links')
       const data = await res.json()
@@ -116,7 +110,7 @@ export default function AdminPage() {
   const fetchVariants = async (linkId: string) => {
     try {
       const res = await fetch(`${API}/api/links/${linkId}/variants`, {
-        headers: { Authorization: `Bearer ${adminSecret}` }
+        headers: { Authorization: `Bearer ${ADMIN_SECRET}` }
       })
       if (res.ok) {
         const data = await res.json()
@@ -170,7 +164,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminSecret}`
+          Authorization: `Bearer ${ADMIN_SECRET}`
         },
         body: JSON.stringify(body)
       })
@@ -211,7 +205,7 @@ export default function AdminPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminSecret}`
+          Authorization: `Bearer ${ADMIN_SECRET}`
         },
         body: JSON.stringify({ action: 'toggle' })
       })
@@ -229,7 +223,7 @@ export default function AdminPage() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminSecret}`
+          Authorization: `Bearer ${ADMIN_SECRET}`
         },
         body: JSON.stringify({ action: 'extend', extendHours: hours })
       })
@@ -247,7 +241,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`${API}/api/links/${id}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${adminSecret}` }
+        headers: { Authorization: `Bearer ${ADMIN_SECRET}` }
       })
       if (res.ok) {
         fetchLinks()
@@ -266,7 +260,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminSecret}`
+          Authorization: `Bearer ${ADMIN_SECRET}`
         },
         body: JSON.stringify({ ids: Array.from(selectedLinks) })
       })
@@ -285,7 +279,7 @@ export default function AdminPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminSecret}`
+          Authorization: `Bearer ${ADMIN_SECRET}`
         },
         body: JSON.stringify({ destination_url: destinationUrl, weight })
       })
@@ -301,7 +295,7 @@ export default function AdminPage() {
     try {
       const res = await fetch(`${API}/api/links/variants/${variantId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${adminSecret}` }
+        headers: { Authorization: `Bearer ${ADMIN_SECRET}` }
       })
       if (res.ok) {
         const linkId = showVariants
@@ -316,32 +310,6 @@ export default function AdminPage() {
   const isExpired = (expiresAt: string | null) => {
     if (!expiresAt) return false
     return new Date(expiresAt) < new Date()
-  }
-
-  if (!adminSecret) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
-        <div style={{ border: '1px solid rgba(0,242,255,0.2)', borderRadius: '12px', padding: '2.5rem', width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <h1 style={{ fontFamily: 'Orbitron, sans-serif', color: 'var(--neon-cyan)', fontSize: '1.4rem', letterSpacing: '2px', textShadow: '0 0 10px var(--neon-cyan)' }}>ADMIN ACCESS</h1>
-          <form onSubmit={(e) => {
-            e.preventDefault()
-            if (!secretInput.trim()) return
-            sessionStorage.setItem('admin_secret', secretInput.trim())
-            setAdminSecret(secretInput.trim())
-          }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <label style={{ fontSize: '0.65rem', letterSpacing: '2px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Secret</label>
-            <input
-              type="password"
-              autoFocus
-              value={secretInput}
-              onChange={(e) => setSecretInput(e.target.value)}
-              style={{ padding: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid rgba(0,242,255,0.2)', borderRadius: '8px', color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem', outline: 'none' }}
-            />
-            <button type="submit" style={{ padding: '0.85rem', background: 'var(--neon-cyan)', border: 'none', borderRadius: '8px', color: '#0B0E14', fontFamily: 'Orbitron, sans-serif', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '2px', cursor: 'pointer' }}>ENTER</button>
-          </form>
-        </div>
-      </div>
-    )
   }
 
   return (

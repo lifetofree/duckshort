@@ -46,9 +46,7 @@ app.get('/admin', async (c) => {
   if (!valid) return c.html(adminLoginHtml(), 401)
   try {
     const res = await fetch('https://duckshort.pages.dev/')
-    const html = await res.text()
-    const injected = html.replace('</head>', `<script>window.__ADMIN_SECRET__=${JSON.stringify(c.env.ADMIN_SECRET)}</script></head>`)
-    return new Response(injected, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
+    return new Response(res.body, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
   } catch {
     return c.json({ error: 'Failed to proxy to frontend' }, 502)
   }
@@ -63,7 +61,7 @@ app.post('/admin', async (c) => {
     status: 302,
     headers: {
       'Location': '/admin',
-      'Set-Cookie': `admin_token=${c.env.ADMIN_SECRET}; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`,
+      'Set-Cookie': `admin_token=${c.env.ADMIN_SECRET}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=86400`,
     },
   })
 })

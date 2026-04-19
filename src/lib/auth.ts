@@ -8,23 +8,29 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
 
 export async function requireAuth(
   env: { ADMIN_SECRET: string },
-  header: string | null | undefined
+  header: string | null | undefined,
+  cookieHeader?: string | null
 ): Promise<Response | null> {
-  if (!header || !header.startsWith('Bearer ')) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  const unauthorized = new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!env.ADMIN_SECRET) return unauthorized
+
+  // Accept Bearer token
+  if (header?.startsWith('Bearer ')) {
+    const token = header.slice(7)
+    if (await timingSafeEqual(token, env.ADMIN_SECRET)) return null
   }
-  const token = header.slice(7)
-  const match = await timingSafeEqual(token, env.ADMIN_SECRET)
-  if (!match) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json' },
-    })
+
+  // Accept admin_token cookie as fallback
+  if (cookieHeader) {
+    const token = cookieHeader.split(';').map(s => s.trim())
+      .find(s => s.startsWith('admin_token='))?.slice('admin_token='.length)
+    if (token && await timingSafeEqual(token, env.ADMIN_SECRET)) return null
   }
-  return null
+
+  return unauthorized
 }
 
 export async function hashPassword(password: string): Promise<string> {
