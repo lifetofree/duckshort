@@ -31,7 +31,7 @@ app.get('/api/links/:id/variants', getVariants)
 app.post('/api/links/:id/variants', createVariant)
 app.delete('/api/links/variants/:variantId', deleteVariant)
 
-// Frontend routes - proxy to Cloudflare Pages
+// Frontend routes - proxy to Cloudflare Pages (must come BEFORE /:id)
 app.get('/', async (c) => {
   try {
     const res = await fetch('https://duckshort.pages.dev/')
@@ -41,6 +41,7 @@ app.get('/', async (c) => {
   }
 })
 
+// Frontend-specific routes (must come BEFORE /:id to avoid being caught)
 app.get('/admin', async (c) => {
   try {
     const res = await fetch('https://duckshort.pages.dev/admin/')
@@ -50,10 +51,12 @@ app.get('/admin', async (c) => {
   }
 })
 
-// Short link redirects
+// Preview and password entry pages
 app.get('/preview/:id', previewLink)
 app.get('/password/:id', showPasswordEntry)
 app.post('/password/:id', verifyPasswordEntry)
+
+// Short link redirects (catch-all, must be LAST among GET routes)
 app.get('/:id', redirectLink)
 
 // Catch-all for other frontend routes
