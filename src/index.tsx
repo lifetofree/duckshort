@@ -47,7 +47,7 @@ app.get('/admin', async (c) => {
   try {
     const res = await fetch('https://duckshort.pages.dev/')
     const html = await res.text()
-    const injected = html.replace('</head>', `<script>window.__ADMIN_SECRET__="${c.env.ADMIN_SECRET}"</script></head>`)
+    const injected = html.replace('</head>', `<script>window.__ADMIN_SECRET__=${JSON.stringify(c.env.ADMIN_SECRET)}</script></head>`)
     return new Response(injected, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } })
   } catch {
     return c.json({ error: 'Failed to proxy to frontend' }, 502)
