@@ -62,9 +62,10 @@ export function ShortenForm({
           <input
             type="text"
             value={customId}
-            onChange={(e) => onCustomIdChange(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+            onChange={(e) => onCustomIdChange(e.target.value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20))}
             placeholder={translate('home.shortenForm.customAliasPlaceholder')}
             disabled={isLoading}
+            maxLength={20}
             className="input-neon"
             style={{
               width: '100%',
