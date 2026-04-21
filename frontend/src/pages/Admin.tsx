@@ -20,7 +20,7 @@ interface Variant {
   weight: number
 }
 
-type AdminTab = 'links' | 'create' | 'stats'
+type AdminTab = 'links' | 'create' | 'stats' | 'link-stats'
 
 interface CreateLinkFormData {
   url: string
@@ -40,7 +40,7 @@ interface CreateLinkFormData {
 }
 
 export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(import.meta.env.DEV)
   const [loginInput, setLoginInput] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
   const [tab, setTab] = useState<AdminTab>('links')
@@ -51,6 +51,11 @@ export default function AdminPage() {
   const [showVariants, setShowVariants] = useState<string | null>(null)
   const [variants, setVariants] = useState<Variant[]>([])
   const [globalStats, setGlobalStats] = useState<{ totalVisits: number; hourlyVisits: number; mood: string } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'disabled' | 'expired'>('all')
+  const [selectedLinkForStats, setSelectedLinkForStats] = useState<string | null>(null)
+  const [linkStats, setLinkStats] = useState<{ visits: number; countries: Array<{ country: string; count: number }>; referrers: Array<{ referer: string; count: number }> } | null>(null)
+  const [statsLimit, setStatsLimit] = useState(10)
 
   const [formData, setFormData] = useState<CreateLinkFormData>({
     url: '',
@@ -98,6 +103,11 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      fetchLinks()
+      fetchGlobalStats()
+      return
+    }
     const storedAuth = localStorage.getItem('admin_authenticated')
     if (storedAuth === 'true') {
       setIsAuthenticated(true)
@@ -338,6 +348,32 @@ export default function AdminPage() {
     return new Date(expiresAt) < new Date()
   }
 
+  const fetchLinkStats = async (linkId: string) => {
+    try {
+      const res = await fetch(`${API}/api/stats/${linkId}?limit=${statsLimit}`)
+      if (res.ok) {
+        const data = await res.json()
+        setLinkStats(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch link stats')
+    }
+  }
+
+  const filteredLinks = links.filter(link => {
+    const matchesSearch = searchQuery === '' || 
+      link.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      link.original_url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (link.tag && link.tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && !link.disabled && !isExpired(link.expires_at)) ||
+      (statusFilter === 'disabled' && link.disabled) ||
+      (statusFilter === 'expired' && isExpired(link.expires_at))
+    
+    return matchesSearch && matchesStatus
+  })
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '2rem', fontFamily: 'JetBrains Mono, monospace' }}>
       {!isAuthenticated ? (
@@ -463,7 +499,10 @@ export default function AdminPage() {
           {(['links', 'create', 'stats'] as AdminTab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => {
+                setTab(t)
+                if (t === 'links') setSelectedLinkForStats(null)
+              }}
               style={{
                 padding: '0.75rem 1.5rem',
                 background: tab === t ? 'var(--neon-cyan)' : 'var(--bg-secondary)',
@@ -482,19 +521,43 @@ export default function AdminPage() {
               {t}
             </button>
           ))}
+          {selectedLinkForStats && (
+            <button
+              onClick={() => {
+                setTab('link-stats')
+                fetchLinkStats(selectedLinkForStats)
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'var(--bg-secondary)',
+                border: '1px solid rgba(191, 0, 255, 0.3)',
+                color: 'var(--neon-purple)',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontWeight: 700,
+                fontSize: '0.75rem',
+                letterSpacing: '2px',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                transition: 'all 0.2s',
+              }}
+            >
+              LINK STATS
+            </button>
+          )}
         </div>
 
         <AnimatePresence mode="wait">
           {tab === 'links' && (
             <motion.div key="links" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <input
                     type="checkbox"
-                    checked={selectedLinks.size === links.length && links.length > 0}
+                    checked={selectedLinks.size === filteredLinks.length && filteredLinks.length > 0}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedLinks(new Set(links.map(l => l.id)))
+                        setSelectedLinks(new Set(filteredLinks.map(l => l.id)))
                       } else {
                         setSelectedLinks(new Set())
                       }
@@ -505,42 +568,86 @@ export default function AdminPage() {
                     {selectedLinks.size > 0 ? `${selectedLinks.size} selected` : 'Select all'}
                   </span>
                 </div>
-                {selectedLinks.size > 0 && (
-                  <button
-                    onClick={handleBulkDelete}
+                
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flex: 1, minWidth: '300px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search links..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     style={{
-                      padding: '0.5rem 1rem',
-                      background: 'var(--neon-magenta)',
-                      border: 'none',
-                      color: '#fff',
+                      flex: 1,
+                      padding: '0.5rem 0.75rem',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid rgba(0, 242, 255, 0.2)',
+                      color: 'var(--text-primary)',
                       fontFamily: 'JetBrains Mono, monospace',
                       fontSize: '0.7rem',
-                      letterSpacing: '1px',
-                      cursor: 'pointer',
+                      borderRadius: '6px',
+                    }}
+                  />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid rgba(0, 242, 255, 0.2)',
+                      color: 'var(--neon-cyan)',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: '0.7rem',
                       borderRadius: '6px',
                     }}
                   >
-                    DELETE SELECTED
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="disabled">Disabled</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  {selectedLinks.size > 0 && (
+                    <button
+                      onClick={handleBulkDelete}
+                      style={{
+                        padding: '0.5rem 1rem',
+                        background: 'var(--neon-magenta)',
+                        border: 'none',
+                        color: '#fff',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.7rem',
+                        letterSpacing: '1px',
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                      }}
+                    >
+                      DELETE SELECTED
+                    </button>
+                  )}
+                  <button
+                    onClick={fetchLinks}
+                    disabled={loading}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid rgba(0, 242, 255, 0.3)',
+                      color: 'var(--neon-cyan)',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: '0.7rem',
+                      letterSpacing: '1px',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      borderRadius: '6px',
+                      opacity: loading ? 0.5 : 1,
+                    }}
+                  >
+                    {loading ? 'REFRESHING...' : 'REFRESH'}
                   </button>
-                )}
-                <button
-                  onClick={fetchLinks}
-                  disabled={loading}
-                  style={{
-                    padding: '0.5rem 1rem',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid rgba(0, 242, 255, 0.3)',
-                    color: 'var(--neon-cyan)',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    fontSize: '0.7rem',
-                    letterSpacing: '1px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    borderRadius: '6px',
-                    opacity: loading ? 0.5 : 1,
-                  }}
-                >
-                  {loading ? 'REFRESHING...' : 'REFRESH'}
-                </button>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '1rem', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                Showing {filteredLinks.length} of {links.length} links
               </div>
 
               <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(0, 242, 255, 0.1)' }}>
@@ -554,20 +661,27 @@ export default function AdminPage() {
                   <div>Tag</div>
                   <div>Actions</div>
                 </div>
-                {links.map((link) => (
-                  <div
-                    key={link.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '40px 120px 1fr 180px 100px 100px 120px 140px',
-                      gap: '1rem',
-                      padding: '1rem',
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      alignItems: 'center',
-                      fontSize: '0.75rem',
-                      background: link.disabled ? 'rgba(255, 0, 85, 0.05)' : 'transparent',
-                    }}
-                  >
+                {filteredLinks.length === 0 ? (
+                  <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔍</div>
+                    <div style={{ fontSize: '0.8rem', letterSpacing: '1px' }}>NO LINKS FOUND</div>
+                    <div style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Try adjusting your search or filters</div>
+                  </div>
+                ) : (
+                  filteredLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '40px 120px 1fr 180px 100px 100px 120px 140px',
+                        gap: '1rem',
+                        padding: '1rem',
+                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                        alignItems: 'center',
+                        fontSize: '0.75rem',
+                        background: link.disabled ? 'rgba(255, 0, 85, 0.05)' : 'transparent',
+                      }}
+                    >
                     <input
                       type="checkbox"
                       checked={selectedLinks.has(link.id)}
@@ -601,6 +715,26 @@ export default function AdminPage() {
                     </div>
                     <div style={{ color: 'var(--text-secondary)' }}>{link.tag || '-'}</div>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => {
+                          setSelectedLinkForStats(link.id)
+                          setTab('link-stats')
+                          fetchLinkStats(link.id)
+                        }}
+                        style={{
+                          padding: '0.35rem 0.7rem',
+                          background: 'var(--neon-purple)',
+                          border: 'none',
+                          color: '#fff',
+                          fontFamily: 'JetBrains Mono, monospace',
+                          fontSize: '0.65rem',
+                          letterSpacing: '1px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        STATS
+                      </button>
                       <button
                         onClick={() => handleToggleLink(link.id)}
                         style={{
@@ -676,7 +810,8 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
-                ))}
+                    ))
+                )}
                 {showVariants && (
                   <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <h3 style={{ color: 'var(--neon-cyan)', fontSize: '0.8rem', letterSpacing: '1px', marginBottom: '1rem' }}>
@@ -1109,6 +1244,206 @@ export default function AdminPage() {
                   <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', letterSpacing: '2px', marginBottom: '0.5rem' }}>SYSTEM MOOD</h3>
                   <div className="neon-glow-cyan" style={{ fontSize: '3rem', color: 'var(--neon-cyan)', fontFamily: 'Orbitron, sans-serif', fontWeight: 700 }}>
                     {globalStats.mood}
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '2rem', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '1.5rem', border: '1px solid rgba(0, 242, 255, 0.1)' }}>
+                <h2 style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '1.5rem', color: 'var(--neon-cyan)', marginBottom: '1rem' }}>
+                  TOP PERFORMING LINKS
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1rem' }}>
+                  {links
+                    .sort((a, b) => b.sparkline.reduce((sum, val) => sum + val, 0) - a.sparkline.reduce((sum, val) => sum + val, 0))
+                    .slice(0, 6)
+                    .map((link) => {
+                      const totalVisits = link.sparkline.reduce((sum, val) => sum + val, 0)
+                      return (
+                        <div
+                          key={link.id}
+                          onClick={() => {
+                            setSelectedLinkForStats(link.id)
+                            setTab('link-stats')
+                            fetchLinkStats(link.id)
+                          }}
+                          style={{
+                            background: 'var(--bg-tertiary)',
+                            padding: '1rem',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(0, 242, 255, 0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--neon-cyan)'}
+                          onMouseOut={(e) => e.currentTarget.style.borderColor = 'rgba(0, 242, 255, 0.1)'}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <div style={{ color: 'var(--neon-cyan)', fontWeight: 700, fontSize: '0.8rem' }}>{link.id}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem' }}>
+                              {totalVisits} visits
+                            </div>
+                          </div>
+                          <div style={{ color: 'var(--text-primary)', fontSize: '0.7rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {link.original_url}
+                          </div>
+                          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2px', height: '20px', alignItems: 'end' }}>
+                            {link.sparkline.map((val, i) => (
+                              <div
+                                key={i}
+                                style={{
+                                  flex: 1,
+                                  background: `rgba(0, 242, 255, ${0.3 + (val / Math.max(...link.sparkline)) * 0.7})`,
+                                  height: `${(val / Math.max(...link.sparkline)) * 100}%`,
+                                  borderRadius: '2px',
+                                  minWidth: '2px',
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {tab === 'link-stats' && selectedLinkForStats && linkStats && (
+            <motion.div key="link-stats" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <button
+                  onClick={() => {
+                    setTab('links')
+                    setSelectedLinkForStats(null)
+                    setLinkStats(null)
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid rgba(0, 242, 255, 0.3)',
+                    color: 'var(--neon-cyan)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: '0.7rem',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                  }}
+                >
+                  ← BACK TO LINKS
+                </button>
+              </div>
+
+              <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '2rem', border: '1px solid rgba(0, 242, 255, 0.1)', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
+                  <div>
+                    <h2 style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '1.5rem', color: 'var(--neon-cyan)', marginBottom: '0.5rem' }}>
+                      STATS FOR {selectedLinkForStats}
+                    </h2>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', maxWidth: '600px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {links.find(l => l.id === selectedLinkForStats)?.original_url}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label style={{ color: 'var(--text-secondary)', fontSize: '0.65rem', letterSpacing: '1px' }}>LIMIT:</label>
+                    <select
+                      value={statsLimit}
+                      onChange={(e) => {
+                        setStatsLimit(Number(e.target.value))
+                        fetchLinkStats(selectedLinkForStats!)
+                      }}
+                      style={{
+                        padding: '0.35rem 0.5rem',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid rgba(0, 242, 255, 0.2)',
+                        color: 'var(--neon-cyan)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '0.7rem',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      <option value={5}>Top 5</option>
+                      <option value={10}>Top 10</option>
+                      <option value={25}>Top 25</option>
+                      <option value={50}>Top 50</option>
+                      <option value={100}>Top 100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                  <div style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.65rem', letterSpacing: '2px', marginBottom: '0.5rem' }}>TOTAL VISITS</div>
+                    <div className="neon-glow-cyan" style={{ fontSize: '2rem', color: 'var(--neon-cyan)', fontFamily: 'Orbitron, sans-serif', fontWeight: 700 }}>
+                      {linkStats.visits.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+                  <div>
+                    <h3 style={{ color: 'var(--neon-cyan)', fontSize: '1rem', marginBottom: '1rem', letterSpacing: '1px' }}>
+                      TOP COUNTRIES
+                    </h3>
+                    {linkStats.countries.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No country data available</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {linkStats.countries.map((country, i) => (
+                          <div
+                            key={country.country}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '0.75rem',
+                              background: 'var(--bg-tertiary)',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>#{i + 1}</span>
+                              <span style={{ color: 'var(--text-primary)' }}>{country.country || 'Unknown'}</span>
+                            </div>
+                            <div style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>{country.count.toLocaleString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 style={{ color: 'var(--neon-cyan)', fontSize: '1rem', marginBottom: '1rem', letterSpacing: '1px' }}>
+                      TOP REFERRERS
+                    </h3>
+                    {linkStats.referrers.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>No referrer data available</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {linkStats.referrers.map((referrer, i) => (
+                          <div
+                            key={referrer.referer}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '0.75rem',
+                              background: 'var(--bg-tertiary)',
+                              borderRadius: '6px',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, overflow: 'hidden' }}>
+                              <span style={{ color: 'var(--neon-cyan)', fontWeight: 700, minWidth: '30px' }}>#{i + 1}</span>
+                              <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {referrer.referer || 'Direct'}
+                              </span>
+                            </div>
+                            <div style={{ color: 'var(--neon-cyan)', fontWeight: 700, marginLeft: '0.5rem' }}>{referrer.count.toLocaleString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
