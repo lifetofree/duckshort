@@ -37,6 +37,7 @@ Resolved items are archived in `HISTORY.md`.
 
 ### Pagination for stats queries (frontend)
 - The backend now accepts `?limit=N` (1–100, default 10) for top countries/referrers.
+- **Status**: Done. `StatsView.tsx` now exposes a limit selector (Top 5/10/25/50/100).
 - **Approach**: Expose a limit selector in `StatsView.tsx` so users can choose how many rows to show.
 
 ---

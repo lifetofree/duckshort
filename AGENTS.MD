@@ -81,7 +81,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Global Quack Counter:** `GET /api/stats/global` — total visits, hourly visits, duck mood
 - [x] **Duck Mood Indicator:** `DORMANT` / `ACTIVE` / `BUSY` / `VIRAL` based on hourly visit count; `ERROR` on fetch failure
 - [x] **QR Code Modal:** `qrcode.react` renders QR for every created short URL + copy to clipboard
-- [x] **View Stats Tab:** Interactive stats lookup in `Home.tsx` using `GET /api/stats/:id`
+- [x] **View Stats Tab:** Interactive stats lookup in `Home.tsx` using `GET /api/stats/:id?limit=N` with configurable limit selector (5/10/25/50/100)
 - [x] **Atomic Rate Limiting:** Per-IP throttle via `RateLimiter` Durable Object (`storage.transaction()`); applied to `POST /api/links` and `POST /api/links/bulk-delete`
 - [x] **Scheduled Cleanup:** Cron Trigger executes `cleanupExpiredLinks` via `src/handlers/cleanup.ts`
 - [x] **Timing-Safe Auth:** `requireAuth()` awaits `timingSafeEqual` properly
@@ -94,17 +94,15 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Auto-Version Footer:** `__APP_VERSION__` injected at build time from `package.json` via Vite `define`
 - [x] **Vitest — Backend:** Workers pool tests covering auth, nanoid, redirect, admin, stats, cleanup, burn-on-read, custom-id, variants, password, preview (75 tests total)
 - [x] **Vitest — Frontend:** jsdom + @testing-library/react tests covering Home, DuckMoodLogo, Home-extended scenarios
+- [x] **Visit Sparkline UI:** 7-day bar-chart sparkline rendered in `StatsView.tsx` for per-link stats; backend `GET /api/stats/:id` now returns `sparkline: number[]`
+- [x] **Bulk Export CSV:** `GET /api/links/export` returns all links as a CSV download (ID, Original URL, Created, Expires, Status, Tag, Visits); "EXPORT CSV" button in Admin dashboard links tab
+- [x] **Neon Heatmap:** Geographic heatmap visualization for country stats — `NeonHeatmap` component renders country blocks with neon glow intensity (cyan→magenta gradient) proportional to visit share; displayed above the countries list in `StatsView`
+- [x] **Geo-Fencing Redirects:** `geo_redirects` table (migration `0006_geo_redirects.sql`); `GET/POST /api/links/:id/geo-redirects`, `DELETE /api/links/geo-redirects/:geoId`; `redirect.tsx` checks `cf-ipcountry` header after A/B selection and applies matching country rule; "GEO" button and panel added to Admin dashboard
+- [x] **Custom Domains:** Per-link custom domain routing via `custom_domain` column. `PATCH /api/links/:id` accepts `action: "set_custom_domain"` with `custom_domain` string (or `null` to unset). `resolveCustomDomain` middleware intercepts non-primary hostnames, looks up the link by domain, and applies full redirect logic (A/B variants, geo-redirects, UTM, burn-on-read, webhooks, analytics).
 
 ## Not Yet Implemented
 
-- [ ] **Admin Dashboard UI:** `frontend/src/pages/Admin.tsx` is a "coming soon" placeholder — no full dashboard UI
-- [ ] **Stats Limit Selector (Frontend):** Backend accepts `?limit=N`; no UI control exposed yet in `StatsView.tsx`
-- [ ] **Visit Sparkline UI:** 7-day per-link sparkline data available from `GET /api/links` but not rendered
-- [ ] **Bulk Export CSV:** Data export functionality for admin
-- [ ] **Custom Domains:** Support for per-link custom domain routing
-- [ ] **Additional Locales:** Only English (`lang-en.json`) is currently wired; locale-switching UI not built
-- [ ] **Neon Heatmap:** Geographic heatmap visualization for country stats
-- [ ] **Geo-Fencing Redirects:** Country-based redirect rules
+(none — all documented features are implemented)
 
 ## Running Locally
 
@@ -266,7 +264,9 @@ DuckShort/
 │   ├── 0003_vanity_and_burn.sql      # burn_on_read column
 │   ├── 0004_performance_indexes.sql  # indexes on links(created_at, disabled), links(tag),
 │   │                                 #   analytics(link_id, timestamp)
-│   └── 0005_og_tags.sql             # og_title, og_description, og_image columns
+│   ├── 0005_og_tags.sql             # og_title, og_description, og_image columns
+│   ├── 0006_geo_redirects.sql      # geo_redirects table for country-based redirects
+│   └── 0007_custom_domain.sql      # custom_domain column on links
 │
 ├── test/                             # Backend Vitest tests (Workers pool)
 │   ├── handlers/
@@ -325,6 +325,7 @@ DuckShort/
 | og_title | TEXT | Custom OG / page title for preview interstitial |
 | og_description | TEXT | Custom OG description |
 | og_image | TEXT | Custom OG image URL |
+| custom_domain | TEXT | Unique custom domain binding (e.g. `link.example.com`); resolved by `resolveCustomDomain` middleware |
 
 ### `analytics`
 | Column | Type | Notes |
@@ -343,6 +344,14 @@ DuckShort/
 | destination_url | TEXT NOT NULL | |
 | weight | INTEGER | Default 1 |
 
+### `geo_redirects`
+| Column | Type | Notes |
+|--------|------|-------|
+| id | TEXT PK | 8-char Base62 |
+| link_id | TEXT FK | → links(id) CASCADE |
+| country_code | TEXT | 2-letter ISO code (e.g. US, TH) |
+| destination_url | TEXT NOT NULL | Redirect target for this country |
+
 ## API Reference
 
 | Method | Path | Auth | Description |
@@ -352,11 +361,15 @@ DuckShort/
 | GET | `/api/links` | Bearer | All links with 7-day sparkline |
 | POST | `/api/links` | Bearer | Create short link (accepts `og_title`, `og_description`, `og_image`) |
 | POST | `/api/links/bulk-delete` | Bearer | Delete multiple links (rate-limited) |
-| PATCH | `/api/links/:id` | Bearer | Toggle disable or extend expiry |
+| PATCH | `/api/links/:id` | Bearer | Toggle disable, extend expiry, or set custom domain (`action: "toggle" | "extend" | "set_custom_domain"`) |
 | DELETE | `/api/links/:id` | Bearer | Delete link |
 | GET | `/api/links/:id/variants` | Bearer | List A/B variants |
 | POST | `/api/links/:id/variants` | Bearer | Add A/B variant |
 | DELETE | `/api/links/variants/:id` | Bearer | Delete variant |
+| GET | `/api/links/export` | Bearer | Export all links as CSV (ID, Original URL, Created, Expires, Status, Tag, Visits) |
+| GET | `/api/links/:id/geo-redirects` | Bearer | List geo-redirect rules for a link |
+| POST | `/api/links/:id/geo-redirects` | Bearer | Add geo-redirect rule (`country_code`, `destination_url`) |
+| DELETE | `/api/links/geo-redirects/:geoId` | Bearer | Delete geo-redirect rule |
 | GET | `/preview/:id` | — | Click-through preview interstitial (with OG meta tags) |
 | GET | `/password/:id` | — | Password entry form |
 | POST | `/password/:id` | — | Verify password + redirect (A/B + UTM + webhook) |

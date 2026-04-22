@@ -75,9 +75,19 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
     destination = pickVariant(variantsResult.results)
   }
 
+  // Apply geo-redirect if country match exists
+  const country = c.req.header('cf-ipcountry') || 'unknown'
+  if (country && country !== 'unknown') {
+    const geoRedirect = await c.env.DB.prepare(
+      'SELECT destination_url FROM geo_redirects WHERE link_id = ? AND country_code = ?'
+    ).bind(id, country.toUpperCase()).first<{ destination_url: string }>()
+    if (geoRedirect) {
+      destination = geoRedirect.destination_url
+    }
+  }
+
   destination = injectUtm(destination, link.utm_source, link.utm_medium, link.utm_campaign)
 
-  const country = c.req.header('cf-ipcountry') || 'unknown'
   const referer = (c.req.header('referer') || 'unknown').slice(0, 255)
   const ua = (c.req.header('user-agent') || 'unknown').slice(0, 255)
   const timestamp = new Date().toISOString()

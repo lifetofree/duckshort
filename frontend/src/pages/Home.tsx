@@ -31,6 +31,7 @@ export default function HomePage() {
   const [statsLoading, setStatsLoading] = useState(false)
   const [statsError, setStatsError] = useState<string | null>(null)
   const [stats, setStats] = useState<StatsData | null>(null)
+  const [statsLimit, setStatsLimit] = useState(10)
 
   const [totalVisits, setTotalVisits] = useState<number | null>(null)
   const [mood, setMood] = useState<DuckMood>('ACTIVE')
@@ -104,7 +105,7 @@ export default function HomePage() {
     setStatsError(null)
     setStats(null)
     try {
-      const res = await fetch(`${API}/api/stats/${id}`)
+      const res = await fetch(`${API}/api/stats/${id}?limit=${statsLimit}`)
       const data = await res.json()
       if (data.error) setStatsError(data.error)
       else setStats(data)
@@ -203,6 +204,7 @@ export default function HomePage() {
                 statsId={statsId} onStatsIdChange={setStatsId}
                 statsLoading={statsLoading} statsError={statsError}
                 stats={stats} onSubmit={handleViewStats}
+                statsLimit={statsLimit} onStatsLimitChange={setStatsLimit}
               />
             </motion.div>
           )}
