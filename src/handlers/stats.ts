@@ -30,11 +30,28 @@ export async function getStats(c: Context<{ Bindings: Env }>) {
 
   if (!link) return c.json({ error: 'Not found' }, 404)
 
+  // Build 7-day sparkline
+  const days: string[] = []
+  const sparklineData: number[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+    const iso = d.toISOString()
+    days.push(iso.slice(0, 10))
+  }
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const sparklineRows = await c.env.DB.prepare(
+    `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ? GROUP BY day`
+  ).bind(id, sevenDaysAgo).all<{ day: string; count: number }>()
+  const countByDay: Record<string, number> = {}
+  for (const row of sparklineRows.results) countByDay[row.day] = row.count
+  for (const day of days) sparklineData.push(countByDay[day] ?? 0)
+
   return c.json({
     link,
     visits: visits?.count ?? 0,
     countries: countries.results,
     referrers: referrers.results,
+    sparkline: sparklineData,
   })
 }
 

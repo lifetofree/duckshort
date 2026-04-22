@@ -4,6 +4,44 @@ Archive of completed features, bug fixes, and security improvements.
 
 ---
 
+## v1.9.0 Enhancements & Fixes (2026-04-21)
+
+### ✅ Custom Domains
+- **Resolved**: `custom_domain` column added to `links` via migration `0007_custom_domain.sql`. `PATCH /api/links/:id` handler extended with `action: "set_custom_domain"`. `resolveCustomDomain` middleware created in `src/middleware/customDomain.ts` and registered in `index.tsx` — intercepts non-primary hostnames, resolves the link by domain, and applies full redirect chain (A/B variants, geo-redirects, UTM, burn-on-read, webhooks, analytics). All test schemas updated.
+
+---
+
+## v1.8.0 Enhancements & Fixes (2026-04-21)
+
+### ✅ Geo-Fencing Redirects
+- **Resolved**: Migration `0006_geo_redirects.sql` creates `geo_redirects` table. `getGeoRedirects`, `createGeoRedirect`, `deleteGeoRedirect` handlers added to `admin.ts`. `redirect.tsx` applies matching country rule from `cf-ipcountry` header after A/B variant resolution. Admin dashboard UI adds "GEO" button per link and a country-code→URL panel with add/delete controls.
+
+---
+
+## v1.7.0 Enhancements & Fixes (2026-04-21)
+
+### ✅ Neon Heatmap
+- **Resolved**: `NeonHeatmap` component added to `frontend/src/components/NeonHeatmap.tsx`. Renders top 20 countries as glowing neon blocks with cyan→magenta color intensity proportional to visit share. No external dependencies. Integrated above the countries list in `StatsView`. Tests updated for duplicate text matches from dual rendering.
+
+---
+
+## v1.6.0 Enhancements & Fixes (2026-04-21)
+
+### ✅ Bulk Export CSV
+- **Resolved**: `GET /api/links/export` endpoint added to `src/handlers/admin.ts`. Returns all links as a CSV with columns: ID, Original URL, Created, Expires, Status, Tag, Visits. "EXPORT CSV" button added to the Admin dashboard links tab toolbar (above the search/filter bar). Uses fetch + blob download to handle Bearer auth.
+
+---
+
+## v1.4.0 Enhancements & Fixes (2026-04-21)
+
+### ✅ Visit Sparkline UI
+- **Resolved**: `StatsView.tsx` now renders a 7-day bar-chart sparkline above country/referrer stats. `Sparkline` component draws proportional cyan/magenta bars with zero-padding. `GET /api/stats/:id` returns `sparkline: number[]` (7 elements). Stats limit selector dropdown wired in.
+
+### ✅ Stats Limit Selector (Frontend)
+- **Resolved**: `StatsView` props expanded with `statsLimit` and `onStatsLimitChange`. Renders a "Top 5/10/25/50/100" select. Section headers display the active limit.
+
+---
+
 ## v1.3.0 Enhancements & Fixes (2026-04-17)
 
 ### ✅ OG Tag Customization

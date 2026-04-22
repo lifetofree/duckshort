@@ -10,4 +10,5 @@ export interface StatsData {
   visits: number
   countries: Array<{ country: string; count: number }>
   referrers: Array<{ referer: string; count: number }>
+  sparkline?: number[]
 }

@@ -128,9 +128,10 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
 
   const { id } = c.req.param()
   const body = await c.req.json<{
-    action?: 'toggle' | 'extend'
+    action?: 'toggle' | 'extend' | 'set_custom_domain'
     extendHours?: number
     disabled?: boolean
+    custom_domain?: string | null
   }>()
 
   if (body.action === 'toggle') {
@@ -143,6 +144,24 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
       'UPDATE links SET disabled = ? WHERE id = ?'
     ).bind(link.disabled ? 0 : 1, id).run()
     return c.json({ success: true, disabled: !link.disabled })
+  }
+
+  if (body.action === 'set_custom_domain') {
+    const domain = (body.custom_domain ?? '').trim() || null
+    if (domain !== null && !/^[a-zA-Z0-9][a-zA-Z0-9.-]{0,253}[a-zA-Z0-9]$/.test(domain)) {
+      return c.json({ error: 'Invalid custom domain format' }, 400)
+    }
+    // Check no other link already uses this domain
+    if (domain !== null) {
+      const existing = await c.env.DB.prepare(
+        'SELECT id FROM links WHERE custom_domain = ? AND id != ?'
+      ).bind(domain, id).first()
+      if (existing) return c.json({ error: 'Custom domain already in use by another link' }, 409)
+    }
+    await c.env.DB.prepare(
+      'UPDATE links SET custom_domain = ? WHERE id = ?'
+    ).bind(domain, id).run()
+    return c.json({ success: true, custom_domain: domain })
   }
 
   if (body.action === 'extend') {
@@ -225,5 +244,78 @@ export async function deleteVariant(c: Context<{ Bindings: Env }>) {
 
   const { variantId } = c.req.param()
   await c.env.DB.prepare('DELETE FROM link_variants WHERE id = ?').bind(variantId).run()
+  return c.json({ success: true })
+}
+
+export async function exportLinks(c: Context<{ Bindings: Env }>) {
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
+  if (auth) return auth
+
+  const links = await c.env.DB.prepare(
+    `SELECT l.id, l.original_url, l.created_at, l.expires_at, l.disabled, l.tag,
+            COALESCE(a.visits, 0) as visits
+     FROM links l
+     LEFT JOIN (SELECT link_id, COUNT(*) as visits FROM analytics GROUP BY link_id) a
+       ON l.id = a.link_id
+     ORDER BY l.created_at DESC`
+  ).all<{ id: string; original_url: string; created_at: string; expires_at: string | null; disabled: number; tag: string | null; visits: number }>()
+
+  const header = 'ID,Original URL,Created,Expires,Status,Tag,Visits\n'
+  const rows = links.results.map((link) => {
+    const status = link.disabled ? 'disabled' : (link.expires_at && new Date(link.expires_at) < new Date() ? 'expired' : 'active')
+    const escape = (v: string) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    return `${link.id},${escape(link.original_url)},${link.created_at},${link.expires_at ?? ''},${status},${escape(link.tag ?? '')},${link.visits}`
+  }).join('\n')
+
+  return c.body(header + rows, 200, {
+    'Content-Type': 'text/csv',
+    'Content-Disposition': 'attachment; filename="duckshort-export.csv"',
+  })
+}
+
+export async function getGeoRedirects(c: Context<{ Bindings: Env }>) {
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
+  if (auth) return auth
+
+  const { id } = c.req.param()
+  const rows = await c.env.DB.prepare(
+    'SELECT id, country_code, destination_url FROM geo_redirects WHERE link_id = ?'
+  ).bind(id).all()
+  return c.json(rows.results)
+}
+
+export async function createGeoRedirect(c: Context<{ Bindings: Env }>) {
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
+  if (auth) return auth
+
+  const { id } = c.req.param()
+  const { country_code, destination_url } = await c.req.json<{
+    country_code: string
+    destination_url: string
+  }>()
+
+  if (!country_code || !destination_url) {
+    return c.json({ error: 'country_code and destination_url required' }, 400)
+  }
+
+  const code = country_code.trim().toUpperCase()
+  if (!/^[A-Z]{2}$/.test(code)) {
+    return c.json({ error: 'country_code must be a 2-letter ISO code (e.g. US, TH)' }, 400)
+  }
+
+  const geoId = generateId()
+  await c.env.DB.prepare(
+    'INSERT INTO geo_redirects (id, link_id, country_code, destination_url) VALUES (?, ?, ?, ?)'
+  ).bind(geoId, id, code, destination_url).run()
+
+  return c.json({ id: geoId, link_id: id, country_code: code, destination_url })
+}
+
+export async function deleteGeoRedirect(c: Context<{ Bindings: Env }>) {
+  const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
+  if (auth) return auth
+
+  const { geoId } = c.req.param()
+  await c.env.DB.prepare('DELETE FROM geo_redirects WHERE id = ?').bind(geoId).run()
   return c.json({ success: true })
 }

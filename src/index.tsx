@@ -3,13 +3,14 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import type { Env } from './types'
 
-import { getLinks, createLink, updateLink, deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant } from './handlers/admin'
+import { getLinks, createLink, updateLink, deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant, exportLinks, getGeoRedirects, createGeoRedirect, deleteGeoRedirect } from './handlers/admin'
 import { redirectLink } from './handlers/redirect'
 import { getStats, getGlobalStats } from './handlers/stats'
 import { previewLink } from './handlers/preview'
 import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
 import { cleanupExpiredLinks } from './handlers/cleanup'
 import { rateLimit } from './middleware/rateLimit'
+import { resolveCustomDomain } from './middleware/customDomain'
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
@@ -18,6 +19,9 @@ app.use('*', cors({
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }))
+
+// Custom domain resolution — must run before route matching
+app.use('*', resolveCustomDomain())
 
 // API routes
 app.get('/api/stats/global', getGlobalStats)
@@ -30,6 +34,10 @@ app.delete('/api/links/:id', deleteLink)
 app.get('/api/links/:id/variants', getVariants)
 app.post('/api/links/:id/variants', createVariant)
 app.delete('/api/links/variants/:variantId', deleteVariant)
+app.get('/api/links/export', exportLinks)
+app.get('/api/links/:id/geo-redirects', getGeoRedirects)
+app.post('/api/links/:id/geo-redirects', createGeoRedirect)
+app.delete('/api/links/geo-redirects/:geoId', deleteGeoRedirect)
 
 // Frontend routes - proxy to Cloudflare Pages (must come BEFORE /:id)
 app.get('/', async (c) => {
