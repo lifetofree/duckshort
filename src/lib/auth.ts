@@ -1,9 +1,11 @@
 export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder()
-  const aBytes = encoder.encode(a)
-  const bBytes = encoder.encode(b)
-  if (aBytes.length !== bBytes.length) return false
-  return (crypto.subtle as any).timingSafeEqual(aBytes, bBytes)
+  // Hash both sides first so lengths are always equal, preventing timing leaks via early-return
+  const [aHash, bHash] = await Promise.all([
+    crypto.subtle.digest('SHA-256', encoder.encode(a)),
+    crypto.subtle.digest('SHA-256', encoder.encode(b)),
+  ])
+  return (crypto.subtle as any).timingSafeEqual(new Uint8Array(aHash), new Uint8Array(bHash))
 }
 
 export async function requireAuth(
@@ -17,13 +19,11 @@ export async function requireAuth(
   })
   if (!env.ADMIN_SECRET) return unauthorized
 
-  // Accept Bearer token
   if (header?.startsWith('Bearer ')) {
     const token = header.slice(7)
     if (await timingSafeEqual(token, env.ADMIN_SECRET)) return null
   }
 
-  // Accept admin_token cookie as fallback
   if (cookieHeader) {
     const token = cookieHeader.split(';').map(s => s.trim())
       .find(s => s.startsWith('admin_token='))?.slice('admin_token='.length)
@@ -43,5 +43,5 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   const computed = await hashPassword(password)
-  return computed === hash
+  return timingSafeEqual(computed, hash)
 }

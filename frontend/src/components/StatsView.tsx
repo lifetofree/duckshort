@@ -138,7 +138,7 @@ export function StatsView({ statsId, onStatsIdChange, statsLoading, statsError, 
               <p style={{ fontSize: '0.6rem', letterSpacing: '2px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', fontFamily: 'JetBrains Mono, monospace' }}>
                 {translate('home.stats.topCountries')} ({statsLimit})
               </p>
-              {stats.countries.slice(0, statsLimit).map((c) => (
+              {stats.countries.map((c) => (
                 <div key={c.country} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', fontSize: '0.8rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <span style={{ color: 'var(--text-primary)' }}>{c.country}</span>
                   <span style={{ color: 'var(--neon-cyan)', fontFamily: 'JetBrains Mono, monospace' }}>{c.count}</span>
@@ -152,7 +152,7 @@ export function StatsView({ statsId, onStatsIdChange, statsLoading, statsError, 
               <p style={{ fontSize: '0.6rem', letterSpacing: '2px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', fontFamily: 'JetBrains Mono, monospace' }}>
                 {translate('home.stats.topReferrers')} ({statsLimit})
               </p>
-              {stats.referrers.slice(0, statsLimit).map((r) => (
+              {stats.referrers.map((r) => (
                 <div key={r.referer} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', fontSize: '0.75rem', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                   <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.referer}</span>
                   <span style={{ color: 'var(--neon-cyan)', flexShrink: 0, fontFamily: 'JetBrains Mono, monospace' }}>{r.count}</span>

@@ -2,16 +2,20 @@ import type { Context } from 'hono'
 import type { Env } from '../types'
 import { requireAuth, hashPassword } from '../lib/auth'
 import { generateId } from '../lib/nanoid'
+import { isSafeUrl, isSafeWebhookUrl } from '../lib/redirectUtils'
 
 export async function getLinks(c: Context<{ Bindings: Env }>) {
   const auth = await requireAuth(c.env, c.req.header('Authorization'), c.req.header('cookie'))
   if (auth) return auth
 
   const links = await c.env.DB.prepare(
-    'SELECT id, original_url, created_at, expires_at, disabled, tag FROM links ORDER BY created_at DESC'
+    `SELECT id, original_url, created_at, expires_at, disabled, tag, burn_on_read, custom_domain,
+            CASE WHEN password_hash IS NOT NULL THEN 1 ELSE 0 END as has_password,
+            webhook_url, utm_source, utm_medium, utm_campaign,
+            og_title, og_description, og_image
+     FROM links ORDER BY created_at DESC`
   ).all()
 
-  // Fetch 7-day sparkline counts for each link
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const sparklineRows = await c.env.DB.prepare(
     `SELECT link_id, date(timestamp) as day, COUNT(*) as count
@@ -27,7 +31,6 @@ export async function getLinks(c: Context<{ Bindings: Env }>) {
     sparklineByLink[row.link_id][row.day] = row.count
   }
 
-  // Build 7-day arrays
   const days: string[] = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
@@ -65,15 +68,24 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
 
   if (!body.url) return c.json({ error: 'URL required' }, 400)
 
+  if (!isSafeUrl(body.url)) {
+    return c.json({ error: 'Only http/https URLs are allowed' }, 400)
+  }
+
+  if (body.webhook_url) {
+    if (!isSafeWebhookUrl(body.webhook_url)) {
+      return c.json({ error: 'webhook_url must be a public https URL' }, 400)
+    }
+  }
+
   let id = body.customId?.trim() || generateId()
-  
-  // If custom ID, validate format and check if it already exists
+
   if (body.customId) {
     const trimmed = body.customId.trim()
     if (!/^[a-zA-Z0-9_-]{3,20}$/.test(trimmed)) {
       return c.json({ error: 'Custom ID must be 3-20 characters (alphanumeric, underscore, hyphen)' }, 400)
     }
-    
+
     const existing = await c.env.DB.prepare(
       'SELECT id FROM links WHERE id = ?'
     ).bind(id).first()
@@ -109,7 +121,6 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
     )
     .run()
 
-  // Insert A/B variants if provided
   if (body.variants && body.variants.length > 0) {
     const stmts = body.variants.map((v) =>
       c.env.DB.prepare(
@@ -151,7 +162,6 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
     if (domain !== null && !/^[a-zA-Z0-9][a-zA-Z0-9.-]{0,253}[a-zA-Z0-9]$/.test(domain)) {
       return c.json({ error: 'Invalid custom domain format' }, 400)
     }
-    // Check no other link already uses this domain
     if (domain !== null) {
       const existing = await c.env.DB.prepare(
         'SELECT id FROM links WHERE custom_domain = ? AND id != ?'
@@ -189,7 +199,8 @@ export async function deleteLink(c: Context<{ Bindings: Env }>) {
   if (auth) return auth
 
   const { id } = c.req.param()
-  await c.env.DB.prepare('DELETE FROM links WHERE id = ?').bind(id).run()
+  const result = await c.env.DB.prepare('DELETE FROM links WHERE id = ?').bind(id).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ success: true })
 }
 
@@ -230,6 +241,7 @@ export async function createVariant(c: Context<{ Bindings: Env }>) {
     weight?: number
   }>()
   if (!destination_url) return c.json({ error: 'destination_url required' }, 400)
+  if (!isSafeUrl(destination_url)) return c.json({ error: 'Only http/https URLs are allowed' }, 400)
 
   const variantId = generateId()
   await c.env.DB.prepare(
@@ -243,7 +255,8 @@ export async function deleteVariant(c: Context<{ Bindings: Env }>) {
   if (auth) return auth
 
   const { variantId } = c.req.param()
-  await c.env.DB.prepare('DELETE FROM link_variants WHERE id = ?').bind(variantId).run()
+  const result = await c.env.DB.prepare('DELETE FROM link_variants WHERE id = ?').bind(variantId).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ success: true })
 }
 
@@ -303,6 +316,10 @@ export async function createGeoRedirect(c: Context<{ Bindings: Env }>) {
     return c.json({ error: 'country_code must be a 2-letter ISO code (e.g. US, TH)' }, 400)
   }
 
+  if (!isSafeUrl(destination_url)) {
+    return c.json({ error: 'Only http/https URLs are allowed' }, 400)
+  }
+
   const geoId = generateId()
   await c.env.DB.prepare(
     'INSERT INTO geo_redirects (id, link_id, country_code, destination_url) VALUES (?, ?, ?, ?)'
@@ -316,6 +333,7 @@ export async function deleteGeoRedirect(c: Context<{ Bindings: Env }>) {
   if (auth) return auth
 
   const { geoId } = c.req.param()
-  await c.env.DB.prepare('DELETE FROM geo_redirects WHERE id = ?').bind(geoId).run()
+  const result = await c.env.DB.prepare('DELETE FROM geo_redirects WHERE id = ?').bind(geoId).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ success: true })
 }

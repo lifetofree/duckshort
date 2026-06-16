@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { EXPIRY_OPTIONS, CUSTOM_ID_REGEX } from '../lib/constants'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
@@ -76,14 +77,6 @@ export default function AdminPage() {
     og_image: '',
   })
 
-  const EXPIRY_OPTIONS = [
-    { label: 'Never', value: 0 },
-    { label: '1 Hour', value: 3600 },
-    { label: '24 Hours', value: 86400 },
-    { label: '7 Days', value: 604800 },
-    { label: '30 Days', value: 2592000 },
-    { label: 'Custom', value: -1 },
-  ]
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
@@ -215,8 +208,8 @@ export default function AdminPage() {
       return
     }
 
-    if (formData.customId.trim() && !/^[a-zA-Z0-9_-]{3,50}$/.test(formData.customId.trim())) {
-      setError('Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)')
+    if (formData.customId.trim() && !CUSTOM_ID_REGEX.test(formData.customId.trim())) {
+      setError('Custom ID must be 3-20 characters (alphanumeric, underscore, hyphen)')
       return
     }
 
@@ -397,9 +390,9 @@ export default function AdminPage() {
     return new Date(expiresAt) < new Date()
   }
 
-  const fetchLinkStats = async (linkId: string) => {
+  const fetchLinkStats = async (linkId: string, limit: number = statsLimit) => {
     try {
-      const res = await fetch(`${API}/api/stats/${linkId}?limit=${statsLimit}`)
+      const res = await fetch(`${API}/api/stats/${linkId}?limit=${limit}`)
       if (res.ok) {
         const data = await res.json()
         setLinkStats(data)
@@ -408,6 +401,13 @@ export default function AdminPage() {
       console.error('Failed to fetch link stats')
     }
   }
+
+  const topLinks = useMemo(() =>
+    [...links]
+      .sort((a, b) => b.sparkline.reduce((s, v) => s + v, 0) - a.sparkline.reduce((s, v) => s + v, 0))
+      .slice(0, 6),
+    [links]
+  )
 
   const filteredLinks = links.filter(link => {
     const matchesSearch = searchQuery === '' || 
@@ -800,7 +800,7 @@ export default function AdminPage() {
                         onClick={() => {
                           setSelectedLinkForStats(link.id)
                           setTab('link-stats')
-                          fetchLinkStats(link.id)
+                          fetchLinkStats(link.id, statsLimit)
                         }}
                         style={{
                           padding: '0.35rem 0.7rem',
@@ -1157,7 +1157,8 @@ export default function AdminPage() {
                       <input
                         type="text"
                         value={formData.customId}
-                        onChange={(e) => setFormData({ ...formData, customId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '') })}
+                        maxLength={20}
+                        onChange={(e) => setFormData({ ...formData, customId: e.target.value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20) })}
                         placeholder="my-custom-link"
                         style={{
                           width: '100%',
@@ -1463,9 +1464,7 @@ export default function AdminPage() {
                   TOP PERFORMING LINKS
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '1rem' }}>
-                  {links
-                    .sort((a, b) => b.sparkline.reduce((sum, val) => sum + val, 0) - a.sparkline.reduce((sum, val) => sum + val, 0))
-                    .slice(0, 6)
+                  {topLinks
                     .map((link) => {
                       const totalVisits = link.sparkline.reduce((sum, val) => sum + val, 0)
                       return (
@@ -1474,7 +1473,7 @@ export default function AdminPage() {
                           onClick={() => {
                             setSelectedLinkForStats(link.id)
                             setTab('link-stats')
-                            fetchLinkStats(link.id)
+                            fetchLinkStats(link.id, statsLimit)
                           }}
                           style={{
                             background: 'var(--bg-tertiary)',
@@ -1497,18 +1496,21 @@ export default function AdminPage() {
                             {link.original_url}
                           </div>
                           <div style={{ marginTop: '0.5rem', display: 'flex', gap: '2px', height: '20px', alignItems: 'end' }}>
-                            {link.sparkline.map((val, i) => (
+                            {link.sparkline.map((val, i) => {
+                              const peak = Math.max(...link.sparkline, 1)
+                              return (
                               <div
                                 key={i}
                                 style={{
                                   flex: 1,
-                                  background: `rgba(0, 242, 255, ${0.3 + (val / Math.max(...link.sparkline)) * 0.7})`,
-                                  height: `${(val / Math.max(...link.sparkline)) * 100}%`,
+                                  background: `rgba(0, 242, 255, ${0.3 + (val / peak) * 0.7})`,
+                                  height: `${(val / peak) * 100}%`,
                                   borderRadius: '2px',
                                   minWidth: '2px',
                                 }}
                               />
-                            ))}
+                              )
+                            })}
                           </div>
                         </div>
                       )
@@ -1558,8 +1560,9 @@ export default function AdminPage() {
                     <select
                       value={statsLimit}
                       onChange={(e) => {
-                        setStatsLimit(Number(e.target.value))
-                        fetchLinkStats(selectedLinkForStats!)
+                        const newLimit = Number(e.target.value)
+                        setStatsLimit(newLimit)
+                        fetchLinkStats(selectedLinkForStats!, newLimit)
                       }}
                       style={{
                         padding: '0.35rem 0.5rem',

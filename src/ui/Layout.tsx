@@ -26,12 +26,12 @@ export default function Layout({ title, ogDescription, ogImage, ogUrl, children 
         <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
         <style>{`
           :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a25;
-            --neon-cyan: #00f5ff;
-            --neon-magenta: #ff00ff;
-            --neon-purple: #bf00ff;
+            --bg-primary: #0B0E14;
+            --bg-secondary: #12141C;
+            --bg-tertiary: #1A1D28;
+            --neon-cyan: #00F2FF;
+            --neon-magenta: #FF0055;
+            --neon-purple: #BF00FF;
             --text-primary: #ffffff;
             --text-secondary: #a0a0b0;
           }

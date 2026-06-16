@@ -11,13 +11,15 @@ import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
 import { cleanupExpiredLinks } from './handlers/cleanup'
 import { rateLimit } from './middleware/rateLimit'
 import { resolveCustomDomain } from './middleware/customDomain'
+
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', logger())
 app.use('*', cors({
-  origin: (origin) => origin ?? '*',
+  origin: ['https://duckshort.cc', 'https://duckshort.pages.dev', 'http://localhost:3030', 'http://localhost:8787'],
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }))
 
 // Custom domain resolution — must run before route matching
@@ -49,7 +51,6 @@ app.get('/', async (c) => {
   }
 })
 
-// Frontend-specific routes (must come BEFORE /:id to avoid being caught)
 app.get('/admin', async (c) => {
   try {
     const res = await fetch('https://duckshort.pages.dev/admin/')
@@ -67,25 +68,28 @@ app.post('/password/:id', verifyPasswordEntry)
 // Short link redirects (catch-all, must be LAST among GET routes)
 app.get('/:id', redirectLink)
 
-// Catch-all for other frontend routes
+// Catch-all for other frontend routes — stream body to avoid corrupting binary assets
 app.all('*', async (c) => {
   const url = new URL(c.req.url)
   const pagesUrl = `https://duckshort.pages.dev${url.pathname}${url.search}`
-  
+
   try {
     const response = await fetch(pagesUrl, {
       method: c.req.method,
       headers: c.req.header(),
-      body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.text() : undefined,
+      body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.arrayBuffer() : undefined,
     })
-    
-    const body = await response.text()
-    
-    return new Response(body, {
+
+    const isHtml = response.headers.get('Content-Type')?.includes('text/html')
+
+    return new Response(response.body, {
       status: response.status,
       headers: {
         'Content-Type': response.headers.get('Content-Type') || 'text/html',
-        'Cache-Control': 'public, max-age=3600',
+        // Short TTL for HTML; assets have content-addressed filenames so longer cache is fine
+        'Cache-Control': isHtml
+          ? 'public, max-age=0, must-revalidate'
+          : (response.headers.get('Cache-Control') || 'public, max-age=3600'),
       },
     })
   } catch (err) {
