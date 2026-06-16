@@ -1,5 +1,4 @@
-const MAX_REQUESTS = 20
-const WINDOW_MS = 60 * 60 * 1000 // 1 hour
+import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from '../lib/constants'
 
 export class RateLimiter implements DurableObject {
   private state: DurableObjectState
@@ -11,31 +10,31 @@ export class RateLimiter implements DurableObject {
   async fetch(_request: Request): Promise<Response> {
     const now = Date.now()
     let allowed = false
-    let resetAt = now + WINDOW_MS
+    let resetAt = now + RATE_LIMIT_WINDOW_MS
     let remaining = 0
 
     await this.state.storage.transaction(async (txn) => {
       const count = (await txn.get<number>('count')) ?? 0
-      const stored = (await txn.get<number>('resetAt')) ?? (now + WINDOW_MS)
+      const stored = (await txn.get<number>('resetAt')) ?? (now + RATE_LIMIT_WINDOW_MS)
 
       let currentCount = count
       let currentResetAt = stored
 
       if (now > currentResetAt) {
         currentCount = 0
-        currentResetAt = now + WINDOW_MS
+        currentResetAt = now + RATE_LIMIT_WINDOW_MS
       }
 
       resetAt = currentResetAt
 
-      if (currentCount >= MAX_REQUESTS) {
+      if (currentCount >= RATE_LIMIT_MAX_REQUESTS) {
         allowed = false
         remaining = 0
         return
       }
 
       currentCount++
-      remaining = MAX_REQUESTS - currentCount
+      remaining = RATE_LIMIT_MAX_REQUESTS - currentCount
       await txn.put('count', currentCount)
       await txn.put('resetAt', currentResetAt)
       allowed = true

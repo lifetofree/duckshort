@@ -15,7 +15,10 @@ export async function getStats(c: Context<{ Bindings: Env }>) {
   const limitParam = parseInt(c.req.query('limit') ?? '10', 10)
   const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 100 ? limitParam : 10
 
-  const [link, visits, countries, referrers] = await Promise.all([
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  // All 5 queries run in parallel (P-09)
+  const [link, visits, countries, referrers, sparklineRows] = await Promise.all([
     c.env.DB.prepare(
       'SELECT id, original_url, created_at, expires_at, disabled, tag FROM links WHERE id = ?'
     ).bind(id).first(),
@@ -26,25 +29,21 @@ export async function getStats(c: Context<{ Bindings: Env }>) {
     c.env.DB.prepare(
       `SELECT referer, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY referer ORDER BY count DESC LIMIT ${limit}`
     ).bind(id).all(),
+    c.env.DB.prepare(
+      `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ? GROUP BY day`
+    ).bind(id, sevenDaysAgo).all<{ day: string; count: number }>(),
   ])
 
   if (!link) return c.json({ error: 'Not found' }, 404)
 
-  // Build 7-day sparkline
   const days: string[] = []
-  const sparklineData: number[] = []
   for (let i = 6; i >= 0; i--) {
     const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
-    const iso = d.toISOString()
-    days.push(iso.slice(0, 10))
+    days.push(d.toISOString().slice(0, 10))
   }
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const sparklineRows = await c.env.DB.prepare(
-    `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ? GROUP BY day`
-  ).bind(id, sevenDaysAgo).all<{ day: string; count: number }>()
   const countByDay: Record<string, number> = {}
   for (const row of sparklineRows.results) countByDay[row.day] = row.count
-  for (const day of days) sparklineData.push(countByDay[day] ?? 0)
+  const sparklineData = days.map((day) => countByDay[day] ?? 0)
 
   return c.json({
     link,

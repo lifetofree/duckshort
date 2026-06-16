@@ -6,6 +6,7 @@ import { QuackCounter } from '../components/QuackCounter'
 import { ShortenForm } from '../components/ShortenForm'
 import { StatsView } from '../components/StatsView'
 import { ResultModal } from '../components/ResultModal'
+import { CUSTOM_ID_REGEX } from '../lib/constants'
 import type { StatsData } from '../types'
 
 const API = import.meta.env.VITE_API_URL ?? ''
@@ -38,6 +39,8 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchGlobalStats = () => {
+      // Skip fetch when tab is hidden (P-05)
+      if (document.visibilityState === 'hidden') return
       fetch(`${API}/api/stats/global`)
         .then((r) => r.json())
         .then((d) => {
@@ -51,8 +54,16 @@ export default function HomePage() {
 
     fetchGlobalStats()
     const interval = setInterval(fetchGlobalStats, 30_000)
-    return () => clearInterval(interval)
-  }, [shortUrl])
+
+    // Resume fetch immediately when tab becomes visible
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchGlobalStats() }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
 
   const handleShorten = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -61,7 +72,7 @@ export default function HomePage() {
       setError(translate('home.shortenForm.errors.invalidUrl'))
       return
     }
-    if (customId.trim() && !/^[a-zA-Z0-9_-]{3,50}$/.test(customId.trim())) {
+    if (customId.trim() && !CUSTOM_ID_REGEX.test(customId.trim())) {
       setError(translate('home.shortenForm.errors.invalidCustomId'))
       return
     }
@@ -134,7 +145,6 @@ export default function HomePage() {
         paddingTop: import.meta.env.MODE === 'development' ? '5rem' : '3rem',
       }}
     >
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
         <div style={{ margin: '0 auto 1.75rem' }}>
           <DuckMoodLogo mood={mood} />
@@ -158,13 +168,11 @@ export default function HomePage() {
         {totalVisits !== null && <QuackCounter totalVisits={totalVisits} />}
       </motion.div>
 
-      {/* Main Card */}
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
         className="glass-card"
         style={{ width: '100%', maxWidth: '560px', borderRadius: '14px', overflow: 'hidden' }}
       >
-        {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid rgba(0, 242, 255, 0.1)', padding: '0 1.75rem' }}>
           {(['shorten', 'stats'] as Tab[]).map((t) => (
             <button
@@ -184,7 +192,6 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Tab Content */}
         <AnimatePresence mode="wait">
           {tab === 'shorten' ? (
             <motion.div key="shorten" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} style={{ padding: '1.75rem' }}>
@@ -211,7 +218,6 @@ export default function HomePage() {
         </AnimatePresence>
       </motion.div>
 
-      {/* Footer */}
       <motion.p
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
         style={{ fontSize: '0.6rem', letterSpacing: '3px', color: 'var(--text-secondary)', textTransform: 'uppercase', opacity: 0.5, textAlign: 'center', marginTop: '2.5rem', fontFamily: 'JetBrains Mono, monospace' }}
@@ -219,7 +225,6 @@ export default function HomePage() {
         {translate('home.footer', { version: __APP_VERSION__ })} - {translate('poweredBy')}
       </motion.p>
 
-      {/* Result Modal */}
       {shortUrl && (
         <ResultModal
           shortUrl={shortUrl} copySuccess={copySuccess}

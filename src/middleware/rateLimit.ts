@@ -1,7 +1,6 @@
 import type { Context, Next } from 'hono'
 import type { Env } from '../types'
-
-const MAX_REQUESTS = 20
+import { RATE_LIMIT_MAX_REQUESTS } from '../lib/constants'
 
 export async function rateLimit(c: Context<{ Bindings: Env }>, next: Next) {
   if (!c.env.RATE_LIMITER) {
@@ -22,7 +21,7 @@ export async function rateLimit(c: Context<{ Bindings: Env }>, next: Next) {
     remaining: number
   }>()
 
-  c.header('X-RateLimit-Limit', String(MAX_REQUESTS))
+  c.header('X-RateLimit-Limit', String(RATE_LIMIT_MAX_REQUESTS))
   c.header('X-RateLimit-Remaining', String(remaining))
   c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)))
 

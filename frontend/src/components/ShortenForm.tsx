@@ -1,4 +1,5 @@
 import { useTranslation } from '../lib/i18n'
+import { EXPIRY_OPTIONS, CUSTOM_ID_MAX_LENGTH } from '../lib/constants'
 
 interface ShortenFormProps {
   url: string
@@ -26,14 +27,15 @@ export function ShortenForm({
 }: ShortenFormProps) {
   const { t: translate } = useTranslation()
 
-  const EXPIRY_OPTIONS = [
-    { label: translate('home.shortenForm.expiryOptions.never'), value: 0 },
-    { label: translate('home.shortenForm.expiryOptions.1hour'), value: 3600 },
-    { label: translate('home.shortenForm.expiryOptions.24hours'), value: 86400 },
-    { label: translate('home.shortenForm.expiryOptions.7days'), value: 604800 },
-    { label: translate('home.shortenForm.expiryOptions.30days'), value: 2592000 },
-    { label: translate('home.shortenForm.expiryOptions.custom'), value: -1 },
-  ]
+  const localizedOptions = EXPIRY_OPTIONS.map((o) => ({
+    value: o.value,
+    label: o.value === 0 ? translate('home.shortenForm.expiryOptions.never')
+      : o.value === 3600 ? translate('home.shortenForm.expiryOptions.1hour')
+      : o.value === 86400 ? translate('home.shortenForm.expiryOptions.24hours')
+      : o.value === 604800 ? translate('home.shortenForm.expiryOptions.7days')
+      : o.value === 2592000 ? translate('home.shortenForm.expiryOptions.30days')
+      : translate('home.shortenForm.expiryOptions.custom'),
+  }))
 
   const isCustomExpiry = expiry === -1
 
@@ -62,10 +64,10 @@ export function ShortenForm({
           <input
             type="text"
             value={customId}
-            onChange={(e) => onCustomIdChange(e.target.value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 20))}
+            onChange={(e) => onCustomIdChange(e.target.value.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, CUSTOM_ID_MAX_LENGTH))}
             placeholder={translate('home.shortenForm.customAliasPlaceholder')}
             disabled={isLoading}
-            maxLength={20}
+            maxLength={CUSTOM_ID_MAX_LENGTH}
             className="input-neon"
             style={{
               width: '100%',
@@ -120,7 +122,7 @@ export function ShortenForm({
               textTransform: 'uppercase',
             }}
           >
-            {EXPIRY_OPTIONS.map((o) => (
+            {localizedOptions.map((o) => (
               <option key={o.value} value={o.value} style={{ background: 'var(--bg-tertiary)', color: 'var(--neon-cyan)' }}>
                 {o.label}
               </option>
@@ -149,7 +151,6 @@ export function ShortenForm({
         />
       )}
 
-      {/* Burn on Read Toggle */}
       <div
         onClick={() => onBurnOnReadChange(!burnOnRead)}
         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}
