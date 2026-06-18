@@ -9,7 +9,6 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - **Backend:** Hono.js 4 on Cloudflare Workers (edge computing, sub-10ms cold starts)
 - **Frontend:** React 18 SPA on Cloudflare Pages (served at `duckshort.pages.dev`, proxied via Worker at `duckshort.cc`)
 - **Database:** Cloudflare D1 (distributed SQLite)
-- **KV:** Cloudflare Workers KV (`RATE_LIMIT` namespace) for per-IP rate limiting
 - **ID Generation:** NanoID (8-character Base62, 62^8 = ~218 trillion combinations)
 - **Cron:** Cloudflare Cron Trigger (`0 * * * *`) for scheduled expired-link cleanup
 
@@ -20,7 +19,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 | Backend | Hono.js 4, Cloudflare Workers, TypeScript |
 | Frontend | React 18, Vite 5, React Router v6, TailwindCSS v4 + @tailwindcss/vite |
 | Animations | motion (Framer Motion v12) via `motion/react` |
-| UI Extras | qrcode.react, lucide-react, DOMPurify |
+| UI Extras | qrcode.react |
 | i18n | Custom `I18nProvider` / `useTranslation` hook (`frontend/src/lib/i18n.tsx`) + `frontend/src/locales/lang-en.json` |
 | State Management | @tanstack/react-query (QueryClientProvider wired in `main.tsx`) |
 | Database | Cloudflare D1 (SQLite) |
@@ -171,10 +170,6 @@ cd frontend && npm run test
 # Set encrypted production secret (run once)
 wrangler secret put ADMIN_SECRET
 
-# Create KV namespace for rate limiting (run once)
-wrangler kv namespace create RATE_LIMIT
-# Paste returned id into wrangler.toml [[kv_namespaces]]
-
 # Apply D1 schema (run once, then CI handles it)
 wrangler d1 migrations apply duckshort-db --remote
 # Note: no --yes flag — removed in wrangler v4 (auto-confirms in CI)
@@ -195,7 +190,7 @@ cd .. && npx wrangler pages deploy frontend/dist --project-name duckshort
 DuckShort/
 ├── src/                              # Backend — Cloudflare Worker (Hono.js)
 │   ├── index.tsx                     # Entry point — routes + scheduled export for cron
-│   ├── types.ts                      # Env interface: DB, RATE_LIMIT, ADMIN_SECRET, BASE_URL
+│   ├── types.ts                      # Env interface: DB, ADMIN_SECRET, BASE_URL
 │   ├── handlers/
 │   │   ├── admin.ts                  # getLinks, createLink, updateLink, deleteLink,
 │   │   │                             #   bulkDeleteLinks, getVariants, createVariant, deleteVariant

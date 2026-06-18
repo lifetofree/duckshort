@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { env } from 'cloudflare:test'
 import { cleanupExpiredLinks } from '../../src/handlers/cleanup'
+import { applySchema, clearAll } from '../helpers/schema'
 
 async function applySchema() {
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, original_url TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT, disabled INTEGER DEFAULT 0, password_hash TEXT, tag TEXT, utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, webhook_url TEXT, burn_on_read INTEGER DEFAULT 0, og_title TEXT, og_description TEXT, og_image TEXT, custom_domain TEXT)`)
-  await env.DB.exec(`CREATE TABLE IF NOT EXISTS analytics (link_id TEXT NOT NULL, country TEXT, referer TEXT, user_agent TEXT, timestamp TEXT DEFAULT (datetime('now')))`)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, original_url TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT, disabled INTEGER DEFAULT 0, password_hash TEXT, tag TEXT, utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, webhook_url TEXT, burn_on_read INTEGER DEFAULT 0, og_title TEXT, og_description TEXT, og_image TEXT, custom_domain TEXT, visits INTEGER NOT NULL DEFAULT 0)`)
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS analytics (id TEXT, link_id TEXT NOT NULL, country TEXT, referer TEXT, user_agent TEXT, timestamp TEXT DEFAULT (datetime('now')))`)
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS link_variants (id TEXT PRIMARY KEY, link_id TEXT NOT NULL, destination_url TEXT NOT NULL, weight INTEGER DEFAULT 1)`)
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS geo_redirects (id TEXT PRIMARY KEY, link_id TEXT NOT NULL, country_code TEXT NOT NULL, destination_url TEXT NOT NULL)`)}
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS counters (key TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)`)
 
 async function clearAll() {
   await env.DB.prepare('DELETE FROM links').run()
@@ -56,7 +58,7 @@ describe('cleanupExpiredLinks', () => {
     expect(result.deleted).toBe(0)
   })
 
-  it('deletes only expired links, not disabled ones', async () => {
+  it('deletes all expired links regardless of disabled status', async () => {
     const pastDate = new Date(Date.now() - 1000).toISOString()
     await env.DB.prepare(
       'INSERT INTO links (id, original_url, created_at, expires_at, disabled) VALUES (?, ?, ?, ?, 1)'
@@ -67,9 +69,19 @@ describe('cleanupExpiredLinks', () => {
     ).bind('expired', 'https://example.com', new Date().toISOString(), pastDate).run()
 
     const result = await cleanupExpiredLinks(env)
-    expect(result.deleted).toBe(1)
+    expect(result.deleted).toBe(2)
 
     const remaining = await env.DB.prepare('SELECT COUNT(*) as count FROM links').first<{ count: number }>()
-    expect(remaining?.count).toBe(1)
+    expect(remaining?.count).toBe(0)
+  })
+
+  it('does not delete disabled links that have not expired', async () => {
+    const futureDate = new Date(Date.now() + 86400000).toISOString()
+    await env.DB.prepare(
+      'INSERT INTO links (id, original_url, created_at, expires_at, disabled) VALUES (?, ?, ?, ?, 1)'
+    ).bind('disabled-active', 'https://example.com', new Date().toISOString(), futureDate).run()
+
+    const result = await cleanupExpiredLinks(env)
+    expect(result.deleted).toBe(0)
   })
 })

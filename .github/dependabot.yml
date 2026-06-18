@@ -1,0 +1,51 @@
+# 7.3: Dependabot config — weekly npm scans with auto-merge on patch updates
+# after CI passes. Major + minor bumps stay manual so reviewers can read the
+# changelog and verify Workers/D1/Cloudflare compatibility.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      patch-and-minor:
+        update-types: ["minor", "patch"]
+    labels:
+      - "dependencies"
+      - "auto-merge"
+    commit-message:
+      prefix: "deps"
+    target-branch: develop
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      patch-and-minor:
+        update-types: ["minor", "patch"]
+    labels:
+      - "dependencies"
+      - "frontend"
+      - "auto-merge"
+    commit-message:
+      prefix: "deps(frontend)"
+    target-branch: develop
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["actions/*", "cloudflare/*"]
+    labels:
+      - "dependencies"
+      - "ci"
+      - "auto-merge"
+    commit-message:
+      prefix: "ci"
+    target-branch: develop

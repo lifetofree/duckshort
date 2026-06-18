@@ -51,11 +51,12 @@ describe('requireAuth', () => {
 })
 
 describe('hashPassword / verifyPassword', () => {
-  it('hashes a password deterministically', async () => {
+  it('hashes a password with a random salt (non-deterministic)', async () => {
+    // S-15: PBKDF2 + random salt — two hashes of the same password must differ.
     const a = await hashPassword('duck123')
     const b = await hashPassword('duck123')
-    expect(a).toBe(b)
-    expect(a).toHaveLength(64) // SHA-256 hex
+    expect(a).not.toBe(b)
+    expect(a.startsWith('pbkdf2$100000$')).toBe(true)
   })
 
   it('verifyPassword returns true for correct password', async () => {
@@ -66,5 +67,22 @@ describe('hashPassword / verifyPassword', () => {
   it('verifyPassword returns false for wrong password', async () => {
     const hash = await hashPassword('s3cr3t')
     expect(await verifyPassword('wrong', hash)).toBe(false)
+  })
+
+  it('verifyPassword still accepts legacy unsalted SHA-256 hashes (backward compat)', async () => {
+    // Pre-migration hashes are 64 lowercase hex chars (raw SHA-256).
+    const legacyHash = '5e8ff9bf55ba3508199f5b5b1d1c0a3e9b3a4e5d3c0c7e3a8a0c7e3a8a0c7e3a'
+    // First confirm we can compute SHA-256 of 'hunter2' for the test.
+    const encoder = new TextEncoder()
+    const sha = await crypto.subtle.digest('SHA-256', encoder.encode('hunter2'))
+    const shaHex = Array.from(new Uint8Array(sha)).map((b) => b.toString(16).padStart(2, '0')).join('')
+    expect(await verifyPassword('hunter2', shaHex)).toBe(true)
+    expect(await verifyPassword('wrong', shaHex)).toBe(false)
+    expect(legacyHash).toHaveLength(64) // sanity
+  })
+
+  it('verifyPassword rejects malformed PBKDF2 strings', async () => {
+    expect(await verifyPassword('s3cr3t', 'pbkdf2$notanint$salt$hash')).toBe(false)
+    expect(await verifyPassword('s3cr3t', 'pbkdf2$100000$$$')).toBe(false)
   })
 })

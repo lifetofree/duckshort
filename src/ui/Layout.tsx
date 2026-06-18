@@ -27,13 +27,15 @@ export default function Layout({ title, ogDescription, ogImage, ogUrl, children 
         <style>{`
           :root {
             --bg-primary: #0B0E14;
-            --bg-secondary: #12141C;
-            --bg-tertiary: #1A1D28;
+            --bg-secondary: #101520;
+            --bg-tertiary: #141A24;
             --neon-cyan: #00F2FF;
             --neon-magenta: #FF0055;
-            --neon-purple: #BF00FF;
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0b0;
+            --neon-purple: #bf00ff;
+            --text-primary: #E8E8EC;
+            --text-secondary: #5A6070;
+            --error: #ff3366;
+            --success: #00ff88;
           }
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 

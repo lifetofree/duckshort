@@ -1,9 +1,12 @@
 export interface Env {
   DB: D1Database
-  RATE_LIMIT: KVNamespace
   RATE_LIMITER: DurableObjectNamespace
   ADMIN_SECRET: string
   BASE_URL: string
+  // B-13: Pages project URL used by the Worker to proxy the SPA. Defaults to
+  // `https://duckshort.pages.dev` so existing deployments keep working without
+  // any wrangler.toml change.
+  PAGES_URL?: string
 }
 
 export interface RedirectLinkRow {

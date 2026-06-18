@@ -253,8 +253,8 @@ describe('Admin: getLinks returns extended columns (B-05)', () => {
     const res = await app.fetch(new Request(`${BASE}/api/links`, { headers: AUTH }), env, ctx)
     await waitOnExecutionContext(ctx)
     expect(res.status).toBe(200)
-    const links = await res.json() as any[]
-    const link = links.find(l => l.id === 'exttest')
+    const body = await res.json() as { links: any[]; nextCursor: string | null }
+    const link = body.links.find(l => l.id === 'exttest')
     expect(link).toBeDefined()
     expect(link.burn_on_read).toBe(1)
     expect(link.has_password).toBe(1)

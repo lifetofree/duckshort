@@ -152,7 +152,11 @@ export function ShortenForm({
       )}
 
       <div
+        role="switch"
+        aria-checked={burnOnRead}
+        tabIndex={0}
         onClick={() => onBurnOnReadChange(!burnOnRead)}
+        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onBurnOnReadChange(!burnOnRead) } }}
         style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', padding: '0.25rem' }}
       >
         <div style={{
@@ -181,7 +185,7 @@ export function ShortenForm({
       </div>
 
       {error && (
-        <p style={{ color: 'var(--error)', fontSize: '0.75rem', letterSpacing: '1px', fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>
+        <p role="alert" style={{ color: 'var(--error)', fontSize: '0.75rem', letterSpacing: '1px', fontFamily: 'JetBrains Mono, monospace', margin: 0 }}>
           {error}
         </p>
       )}
