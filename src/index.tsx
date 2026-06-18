@@ -12,7 +12,7 @@ import { getStats, getGlobalStats } from './handlers/stats'
 import { previewLink } from './handlers/preview'
 import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
 import { cleanupExpiredLinks } from './handlers/cleanup'
-import { aggregateLinkStatsDaily } from './handlers/aggregate'
+import { aggregateLinkStatsDaily, selfHealTotalVisitsCounter } from './handlers/aggregate'
 import { health } from './handlers/health'
 import { rateLimit, type RateLimitBucket } from './middleware/rateLimit'
 import { resolveCustomDomain } from './middleware/customDomain'
@@ -229,6 +229,15 @@ export default {
     ctx.waitUntil(
       aggregateLinkStatsDaily(env).catch((err) => {
         appLogger.error('cron_aggregate_failed', { error: String(err) })
+      })
+    )
+    // Counter self-heal: re-sync total_visits with the true analytics
+    // count once an hour. The counter is incremented best-effort in the
+    // same batch as the analytics insert, but partial commits under
+    // failure can leave it stale. Cheap: one COUNT(*) + one UPDATE.
+    ctx.waitUntil(
+      selfHealTotalVisitsCounter(env).catch((err) => {
+        appLogger.error('cron_counter_self_heal_failed', { error: String(err) })
       })
     )
     ctx.waitUntil(
