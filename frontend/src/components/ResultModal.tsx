@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from '../lib/i18n'
 
@@ -10,9 +11,20 @@ interface ResultModalProps {
 
 export function ResultModal({ shortUrl, copySuccess, onCopy, onClose }: ResultModalProps) {
   const { t: translate } = useTranslation()
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+    const handleEscape = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose])
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={translate('home.modal.title')}
       className="modal-overlay"
       style={{
         position: 'fixed', inset: 0, background: 'rgba(10, 12, 18, 0.92)',
@@ -36,9 +48,9 @@ export function ResultModal({ shortUrl, copySuccess, onCopy, onClose }: ResultMo
           </div>
         </div>
 
-        <p style={{ fontSize: '0.6rem', letterSpacing: '1px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', fontFamily: 'JetBrains Mono, monospace' }}>
+        <label style={{ fontSize: '0.6rem', letterSpacing: '1px', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '0.5rem', fontFamily: 'JetBrains Mono, monospace', display: 'block' }}>
           {translate('home.modal.yourShortUrl')}
-        </p>
+        </label>
         <input
           type="text" readOnly value={shortUrl} className="input-neon"
           style={{ width: '100%', padding: '0.85rem 1.25rem', borderRadius: '10px', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.9rem', marginBottom: '0.85rem' }}
@@ -63,6 +75,7 @@ export function ResultModal({ shortUrl, copySuccess, onCopy, onClose }: ResultMo
             </span>
           </div>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '0.6rem', letterSpacing: '1px', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace' }}
           >

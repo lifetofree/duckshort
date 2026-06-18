@@ -1,7 +1,31 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import HomePage from './pages/Home'
-import AdminPage from './pages/Admin'
 import DevModeBar from './components/DevModeBar'
+
+const HomePage = lazy(() => import('./pages/Home'))
+const AdminPage = lazy(() => import('./pages/Admin'))
+
+function Loading() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'var(--bg-primary)',
+    }}>
+      <div style={{
+        fontFamily: 'Orbitron, sans-serif',
+        fontSize: '0.8rem',
+        letterSpacing: '3px',
+        color: 'var(--neon-cyan)',
+        textTransform: 'uppercase',
+      }}>
+        Loading...
+      </div>
+    </div>
+  )
+}
 
 function NotFound() {
   return (
@@ -30,11 +54,13 @@ export default function App() {
   return (
     <>
       <DevModeBar />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </>
   )
 }

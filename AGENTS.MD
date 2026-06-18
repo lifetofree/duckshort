@@ -9,7 +9,6 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - **Backend:** Hono.js 4 on Cloudflare Workers (edge computing, sub-10ms cold starts)
 - **Frontend:** React 18 SPA on Cloudflare Pages (served at `duckshort.pages.dev`, proxied via Worker at `duckshort.cc`)
 - **Database:** Cloudflare D1 (distributed SQLite)
-- **KV:** Cloudflare Workers KV (`RATE_LIMIT` namespace) — used by legacy rate limit path; superseded by Durable Object
 - **Durable Objects:** `RateLimiter` DO for atomic per-IP rate limiting via `storage.transaction()`
 - **ID Generation:** NanoID (8-character Base62, 62^8 = ~218 trillion combinations)
 - **Cron:** Cloudflare Cron Trigger (`0 * * * *`) for scheduled expired-link cleanup
@@ -21,7 +20,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 | Backend | Hono.js 4, Cloudflare Workers, TypeScript |
 | Frontend | React 18, Vite 5, React Router v6, TailwindCSS v4 + @tailwindcss/vite |
 | Animations | motion (Framer Motion v12) via `motion/react` |
-| UI Extras | qrcode.react, lucide-react, DOMPurify |
+| UI Extras | qrcode.react |
 | i18n | Custom `I18nProvider` / `useTranslation` hook (`frontend/src/lib/i18n.tsx`) + `frontend/src/locales/lang-en.json` |
 | Database | Cloudflare D1 (SQLite) |
 | Testing | Vitest — backend via `@cloudflare/vitest-pool-workers`, frontend via jsdom + @testing-library/react |
@@ -51,13 +50,19 @@ Provide lightning-fast redirects and secure link management with a visually stri
 **Asset:** `frontend/src/assets/logo.png` — duck mascot, displayed circular in the header
 
 ## Security Model
-- **Bearer Token Auth:** All admin endpoints require `Authorization: Bearer <ADMIN_SECRET>`. Checked via `requireAuth()` in `src/lib/auth.ts`.
-- **Timing-Safe Comparison:** `crypto.subtle.timingSafeEqual` (Web Crypto API) prevents timing-based secret inference.
-- **Password Hashing:** Link passwords hashed with SHA-256 via Web Crypto (`hashPassword` / `verifyPassword`). bcrypt unavailable in Workers runtime.
-- **Enumeration Prevention:** NanoID Base62 prevents sequential guessing.
+- **Bearer Token Auth:** All admin endpoints require `Authorization: Bearer <ADMIN_SECRET>`. Checked via `requireAuth()` in `src/lib/auth.ts`. Failed auth attempts are logged with `auth_failed` and a `reason` discriminator (`bearer_mismatch`, `session_expired`, `session_signature_mismatch`, `cookie_missing`, `no_credentials`, `admin_secret_unset`).
+- **HMAC-Signed Session Cookie:** After a successful login the admin receives an `HttpOnly; SameSite=Lax; Secure` cookie (`admin_token`) whose value is `HMAC-SHA256(SESSION_SECRET, payload)` plus the payload (`<issuedAt>.<expiresAt>.<csrf>`). Verified with `crypto.subtle.timingSafeEqual` (Web Crypto API) so a timing-attack on the signature is not feasible.
+- **Session Lifetime:** 1 hour fixed (`SESSION_MAX_AGE_SECONDS` in `src/lib/constants.ts`). The `login` handler re-issues the cookie on each successful login; an active admin effectively has a sliding 1h session.
+- **Password Hashing:** Link passwords hashed with **PBKDF2-SHA-256** (100 000 iterations, 32-byte key, random per-link salt) via Web Crypto (`hashPassword` / `verifyPassword` in `src/lib/auth.ts`). bcrypt and Argon2 are not available in the Workers runtime.
+- **Security Headers (S-19):** Every Worker response sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: strict-origin-when-cross-origin` via global middleware in `src/index.tsx`.
+- **Tightened Localhost Check (S-18):** `isLocalHostname()` in `src/middleware/customDomain.ts` requires exact match on `localhost`, `localhost:*`, `127.*`, or `[::1]`. Substring-based detection is rejected.
+- **Referer Sanitisation (S-20):** `refererHostname()` in `src/lib/redirectUtils.ts` stores only the hostname (no path/query/fragment) in the `analytics.referer` column.
+- **Enumeration Prevention:** NanoID Base62 (8 chars, 62^8 ≈ 218 T combinations) prevents sequential guessing.
+- **Rate Limiting:** `src/middleware/rateLimit.ts` calls a `RateLimiter` Durable Object which uses `storage.transaction()` for atomic per-IP check-and-increment. Two pools are isolated by the DO id: `api:<ip>` capped at 20 req/hr (`RATE_LIMIT_MAX_REQUESTS`) and `redirect:<ip>` capped at 200 req/hr (`RATE_LIMIT_REDIRECT_MAX_REQUESTS`). Fails open with a `rate_limit_disabled_binding_missing` log if the `RATE_LIMITER` binding is absent.
+- **Webhook Timeout (P-18):** Outgoing webhook POSTs are wrapped in an `AbortController` with a 5 000 ms timeout (`WEBHOOK_TIMEOUT_MS`).
+- **Analytics PK (P-17):** Each analytics row carries a 16-char hex `id` (indexed) so GDPR-style deletion is a single `DELETE WHERE id = ?`.
 - **Analytics Safety:** User-Agent and Referer headers truncated to 255 chars before storage.
-- **Secrets Management:** `ADMIN_SECRET` stored as an encrypted Cloudflare secret (`wrangler secret put ADMIN_SECRET`), never in `wrangler.toml`.
-- **Rate Limiting:** `src/middleware/rateLimit.ts` calls a `RateLimiter` Durable Object which uses `storage.transaction()` for atomic per-IP check-and-increment (20 req/hr cap). Gracefully skips if `RATE_LIMITER` binding is absent.
+- **Secrets Management:** `ADMIN_SECRET` and `SESSION_SECRET` stored as encrypted Cloudflare secrets (`wrangler secret put …`), never in `wrangler.toml`.
 
 ## Implemented Features
 
@@ -172,10 +177,6 @@ cd frontend && npm run test
 # Set encrypted production secret (run once)
 wrangler secret put ADMIN_SECRET
 
-# Create KV namespace for rate limiting (run once, legacy fallback)
-wrangler kv namespace create RATE_LIMIT
-# Paste returned id into wrangler.toml [[kv_namespaces]]
-
 # Apply D1 schema (run once, then CI handles it)
 wrangler d1 migrations apply duckshort-db --remote
 # Note: no --yes flag — removed in wrangler v4 (auto-confirms in CI)
@@ -196,7 +197,7 @@ cd .. && npx wrangler pages deploy frontend/dist --project-name duckshort
 DuckShort/
 ├── src/                              # Backend — Cloudflare Worker (Hono.js)
 │   ├── index.tsx                     # Entry point — routes + scheduled export for cron + RateLimiter DO export
-│   ├── types.ts                      # Env interface: DB, RATE_LIMIT, RATE_LIMITER, ADMIN_SECRET, BASE_URL
+│   ├── types.ts                      # Env interface: DB, RATE_LIMITER, ADMIN_SECRET, BASE_URL
 │   ├── handlers/
 │   │   ├── admin.ts                  # getLinks, createLink (og_title/og_description/og_image), updateLink,
 │   │   │                             #   deleteLink, bulkDeleteLinks, getVariants, createVariant, deleteVariant
@@ -266,7 +267,8 @@ DuckShort/
 │   │                                 #   analytics(link_id, timestamp)
 │   ├── 0005_og_tags.sql             # og_title, og_description, og_image columns
 │   ├── 0006_geo_redirects.sql      # geo_redirects table for country-based redirects
-│   └── 0007_custom_domain.sql      # custom_domain column on links
+│   ├── 0007_custom_domain.sql      # custom_domain column on links
+│   └── 0008_visits_counters.sql    # visits column on links + counters table (P-01/P-06/P-11/P-13)
 │
 ├── test/                             # Backend Vitest tests (Workers pool)
 │   ├── handlers/
@@ -326,6 +328,7 @@ DuckShort/
 | og_description | TEXT | Custom OG description |
 | og_image | TEXT | Custom OG image URL |
 | custom_domain | TEXT | Unique custom domain binding (e.g. `link.example.com`); resolved by `resolveCustomDomain` middleware |
+| visits | INTEGER | Not null, default 0. Incremented in `recordAnalytics` for O(1) visit lookups (P-06/P-13) |
 
 ### `analytics`
 | Column | Type | Notes |
@@ -352,13 +355,19 @@ DuckShort/
 | country_code | TEXT | 2-letter ISO code (e.g. US, TH) |
 | destination_url | TEXT NOT NULL | Redirect target for this country |
 
+### `counters`
+| Column | Type | Notes |
+|--------|------|-------|
+| key | TEXT PK | Counter name (e.g. `total_visits`) |
+| value | INTEGER | Not null, default 0. Incremented atomically in `recordAnalytics` (P-01/P-11) |
+
 ## API Reference
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/stats/global` | — | Total visits, hourly count, duck mood |
 | GET | `/api/stats/:id?limit=N` | — | Per-link stats (visits, top N countries/referrers; default 10, max 100) |
-| GET | `/api/links` | Bearer | All links with 7-day sparkline |
+| GET | `/api/links?cursor=<ts>&limit=N` | Bearer | Paginated links with 7-day sparkline (default 50, max 100). Response: `{ links, nextCursor }` |
 | POST | `/api/links` | Bearer | Create short link (accepts `og_title`, `og_description`, `og_image`) |
 | POST | `/api/links/bulk-delete` | Bearer | Delete multiple links (rate-limited) |
 | PATCH | `/api/links/:id` | Bearer | Toggle disable, extend expiry, or set custom domain (`action: "toggle" | "extend" | "set_custom_domain"`) |

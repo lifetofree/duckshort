@@ -1,6 +1,20 @@
 import type { MiddlewareHandler } from 'hono'
-import type { Env, RedirectLinkRow } from '../types'
-import { resolveDestination, recordAnalytics, handleBurnOnRead } from '../lib/redirectUtils'
+import type { Env } from '../types'
+import { loadLinkRow, dispatchRedirect } from '../lib/redirectUtils'
+
+// S-18: Tighten the localhost short-circuit to exact matches. The previous
+// `hostname.includes('localhost')` also matched `evil-localhost.example.com`,
+// letting an attacker register such a domain to bypass the custom-domain
+// lookup. We now require an exact `localhost` (optionally with port) or a
+// 127.x.x.x / ::1 IPv6 loopback prefix.
+function isLocalHostname(hostname: string): boolean {
+  const lower = hostname.toLowerCase()
+  if (lower === 'localhost') return true
+  if (lower.startsWith('localhost:')) return true
+  if (lower.startsWith('127.')) return true
+  if (lower === '[::1]' || lower.startsWith('[::1]:')) return true
+  return false
+}
 
 export function resolveCustomDomain(): MiddlewareHandler<{ Bindings: Env }> {
   return async (c, next) => {
@@ -11,9 +25,7 @@ export function resolveCustomDomain(): MiddlewareHandler<{ Bindings: Env }> {
     if (
       hostname === primaryHost ||
       hostname.endsWith(`.${primaryHost}`) ||
-      hostname.includes('localhost') ||
-      hostname.startsWith('127.') ||
-      hostname === 'localhost:8787'
+      isLocalHostname(hostname)
     ) {
       return next()
     }
@@ -23,45 +35,10 @@ export function resolveCustomDomain(): MiddlewareHandler<{ Bindings: Env }> {
       return next()
     }
 
-    const link = await c.env.DB.prepare(
-      `SELECT id, original_url, disabled, expires_at, password_hash,
-              utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read,
-              (expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')) as is_expired
-       FROM links WHERE custom_domain = ?`
-    ).bind(hostname).first<RedirectLinkRow>()
-
+    // F-03: Use shared loadLinkRow + dispatchRedirect
+    const link = await loadLinkRow(c.env.DB, hostname, 'custom_domain')
     if (!link) return next()
 
-    if (link.disabled) {
-      return c.json({ error: 'Link disabled' }, 404)
-    }
-
-    if (link.is_expired) {
-      await c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(link.id).run()
-      return c.json({ error: 'Link expired' }, 410)
-    }
-
-    if (link.password_hash) {
-      return c.redirect(`/password/${link.id}`, 302)
-    }
-
-    if (link.burn_on_read) {
-      const burned = await handleBurnOnRead(c.env.DB, link.id)
-      if (!burned) return c.json({ error: 'Link disabled' }, 404)
-    }
-
-    const country = (c.req.header('cf-ipcountry') || 'unknown').toUpperCase()
-    const referer = (c.req.header('referer') || 'unknown').slice(0, 255)
-    const ua = (c.req.header('user-agent') || 'unknown').slice(0, 255)
-
-    const destination = await resolveDestination(
-      c.env.DB, link.id, link.original_url,
-      link.utm_source, link.utm_medium, link.utm_campaign,
-      country
-    )
-
-    recordAnalytics(c.executionCtx, c.env.DB, link.id, country, referer, ua, link.webhook_url)
-
-    return c.redirect(destination, 302)
+    return dispatchRedirect(c, link)
   }
 }

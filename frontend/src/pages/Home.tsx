@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import { useQuery } from '@tanstack/react-query'
 import DuckMoodLogo, { type DuckMood } from '../components/DuckMoodLogo'
 import { useTranslation } from '../lib/i18n'
 import { QuackCounter } from '../components/QuackCounter'
@@ -7,10 +8,8 @@ import { ShortenForm } from '../components/ShortenForm'
 import { StatsView } from '../components/StatsView'
 import { ResultModal } from '../components/ResultModal'
 import { CUSTOM_ID_REGEX } from '../lib/constants'
-import type { StatsData } from '../types'
 
 const API = import.meta.env.VITE_API_URL ?? ''
-const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET ?? ''
 
 type Tab = 'shorten' | 'stats'
 
@@ -29,41 +28,25 @@ export default function HomePage() {
   const [copySuccess, setCopySuccess] = useState(false)
 
   const [statsId, setStatsId] = useState('')
-  const [statsLoading, setStatsLoading] = useState(false)
-  const [statsError, setStatsError] = useState<string | null>(null)
-  const [stats, setStats] = useState<StatsData | null>(null)
   const [statsLimit, setStatsLimit] = useState(10)
+  const [submittedStatsId, setSubmittedStatsId] = useState<string | null>(null)
 
-  const [totalVisits, setTotalVisits] = useState<number | null>(null)
-  const [mood, setMood] = useState<DuckMood>('ACTIVE')
+  const { data: globalStats, error: globalStatsError } = useQuery({
+    queryKey: ['globalStats'],
+    queryFn: () => fetch(`${API}/api/stats/global`).then(r => r.json()),
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
+  })
 
-  useEffect(() => {
-    const fetchGlobalStats = () => {
-      // Skip fetch when tab is hidden (P-05)
-      if (document.visibilityState === 'hidden') return
-      fetch(`${API}/api/stats/global`)
-        .then((r) => r.json())
-        .then((d) => {
-          if (typeof d.totalVisits === 'number') setTotalVisits(d.totalVisits)
-          if (d.mood === 'DORMANT' || d.mood === 'ACTIVE' || d.mood === 'BUSY' || d.mood === 'VIRAL') {
-            setMood(d.mood as DuckMood)
-          }
-        })
-        .catch(() => setMood('ERROR'))
-    }
+  const { data: stats, isLoading: statsLoading, error: statsQueryError } = useQuery({
+    queryKey: ['linkStats', submittedStatsId, statsLimit],
+    queryFn: () => fetch(`${API}/api/stats/${submittedStatsId}?limit=${statsLimit}`).then(r => r.json()),
+    enabled: !!submittedStatsId,
+  })
 
-    fetchGlobalStats()
-    const interval = setInterval(fetchGlobalStats, 30_000)
-
-    // Resume fetch immediately when tab becomes visible
-    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchGlobalStats() }
-    document.addEventListener('visibilitychange', handleVisibility)
-
-    return () => {
-      clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibility)
-    }
-  }, [])
+  const totalVisits = globalStats?.totalVisits ?? null
+  const mood: DuckMood = globalStatsError ? 'ERROR' : (globalStats?.mood as DuckMood) ?? 'ACTIVE'
+  const statsError = statsQueryError ? translate('home.statsForm.error') : stats?.error ?? null
 
   const handleShorten = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,7 +67,8 @@ export default function HomePage() {
         : (expiry || undefined)
       const res = await fetch(`${API}/api/links`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ADMIN_SECRET}` },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ url, customId: customId.trim() || undefined, burn_on_read: burnOnRead, expiresIn }),
       })
       const data = await res.json()
@@ -112,19 +96,7 @@ export default function HomePage() {
       const pathParts = urlObj.pathname.split('/').filter(Boolean)
       if (pathParts.length > 0) id = pathParts[pathParts.length - 1]
     } catch { /* not a URL, use as-is */ }
-    setStatsLoading(true)
-    setStatsError(null)
-    setStats(null)
-    try {
-      const res = await fetch(`${API}/api/stats/${id}?limit=${statsLimit}`)
-      const data = await res.json()
-      if (data.error) setStatsError(data.error)
-      else setStats(data)
-    } catch {
-      setStatsError(translate('home.statsForm.error'))
-    } finally {
-      setStatsLoading(false)
-    }
+    setSubmittedStatsId(id)
   }
 
   const handleCopy = async () => {
@@ -173,11 +145,15 @@ export default function HomePage() {
         className="glass-card"
         style={{ width: '100%', maxWidth: '560px', borderRadius: '14px', overflow: 'hidden' }}
       >
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(0, 242, 255, 0.1)', padding: '0 1.75rem' }}>
+        <div role="tablist" style={{ display: 'flex', borderBottom: '1px solid rgba(0, 242, 255, 0.1)', padding: '0 1.75rem' }}>
           {(['shorten', 'stats'] as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => { setTab(t); setError(null); setStatsError(null) }}
+              role="tab"
+              aria-selected={tab === t}
+              aria-controls={`panel-${t}`}
+              id={`tab-${t}`}
+              onClick={() => { setTab(t); setError(null) }}
               style={{
                 padding: '1.1rem 0.5rem', marginRight: '1.75rem', background: 'none', border: 'none',
                 borderBottom: tab === t ? '2px solid var(--neon-cyan)' : '2px solid transparent',
@@ -194,7 +170,7 @@ export default function HomePage() {
 
         <AnimatePresence mode="wait">
           {tab === 'shorten' ? (
-            <motion.div key="shorten" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} style={{ padding: '1.75rem' }}>
+            <motion.div key="shorten" role="tabpanel" id="panel-shorten" aria-labelledby="tab-shorten" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} style={{ padding: '1.75rem' }}>
               <ShortenForm
                 url={url} onUrlChange={setUrl}
                 customId={customId} onCustomIdChange={setCustomId}
@@ -206,7 +182,7 @@ export default function HomePage() {
               />
             </motion.div>
           ) : (
-            <motion.div key="stats" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} style={{ padding: '1.75rem' }}>
+            <motion.div key="stats" role="tabpanel" id="panel-stats" aria-labelledby="tab-stats" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} style={{ padding: '1.75rem' }}>
               <StatsView
                 statsId={statsId} onStatsIdChange={setStatsId}
                 statsLoading={statsLoading} statsError={statsError}

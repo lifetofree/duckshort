@@ -87,9 +87,9 @@ describe('POST /api/links — password field', () => {
       'SELECT password_hash FROM links WHERE id = ?'
     ).bind(id).first<{ password_hash: string | null }>()
 
-    // Should be a 64-char SHA-256 hex, not the plaintext
-    expect(row?.password_hash).toHaveLength(64)
+    // Should be a PBKDF2 string (S-15), not the plaintext or a 64-char SHA-256
     expect(row?.password_hash).not.toBe('hunter2')
+    expect(row?.password_hash).toMatch(/^pbkdf2\$100000\$[0-9a-f]+\$[0-9a-f]+$/)
   })
 
   it('stores null password_hash when no password given', async () => {
@@ -330,10 +330,10 @@ describe('POST /api/links/bulk-delete — validation', () => {
       headers: { 'Content-Type': 'application/json', Authorization: AUTH },
       body: JSON.stringify({ ids: ['ghost1', 'ghost2'] }),
     })
-    // D1 batch DELETE on missing rows is not an error
+    // D1 batch DELETE on missing rows is not an error; reports actual rows deleted
     expect(res.status).toBe(200)
     const body = await res.json() as { deleted: number }
-    expect(body.deleted).toBe(2) // reports the number of ids sent
+    expect(body.deleted).toBe(0) // no rows matched
   })
 })
 
@@ -401,11 +401,11 @@ describe('GET /api/links — sparkline', () => {
     await seedLink('sparklink')
     const res = await req('/api/links', { headers: { Authorization: AUTH } })
     expect(res.status).toBe(200)
-    const body = await res.json() as any[]
-    expect(body[0].sparkline).toBeDefined()
-    expect(Array.isArray(body[0].sparkline)).toBe(true)
-    expect(body[0].sparkline).toHaveLength(7)
-    expect(body[0].sparkline.every((v: unknown) => typeof v === 'number')).toBe(true)
+    const body = await res.json() as { links: any[]; nextCursor: string | null }
+    expect(body.links[0].sparkline).toBeDefined()
+    expect(Array.isArray(body.links[0].sparkline)).toBe(true)
+    expect(body.links[0].sparkline).toHaveLength(7)
+    expect(body.links[0].sparkline.every((v: unknown) => typeof v === 'number')).toBe(true)
   })
 
   it('sparkline counts visits for the last 7 days', async () => {
@@ -419,8 +419,8 @@ describe('GET /api/links — sparkline', () => {
     }
 
     const res = await req('/api/links', { headers: { Authorization: AUTH } })
-    const body = await res.json() as any[]
-    const link = body.find((l: any) => l.id === 'spark-count')
+    const body = await res.json() as { links: any[]; nextCursor: string | null }
+    const link = body.links.find((l: any) => l.id === 'spark-count')
     expect(link).toBeDefined()
     // Last element of sparkline is today
     expect(link.sparkline[6]).toBe(3)
