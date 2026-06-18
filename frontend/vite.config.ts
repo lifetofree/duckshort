@@ -16,7 +16,11 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(version),
     },
     plugins: [tailwindcss(), react()],
-    base: mode === 'production' ? 'https://duckshort.pages.dev/' : '/',
+    // Always use a relative base. The Worker at duckshort.cc proxies /assets/*
+    // to Pages, so the browser sees assets as same-origin. The previous
+    // production override (https://duckshort.pages.dev/) bypassed the Worker
+    // and triggered CSP 'self' mismatches on the proxy origin.
+    base: '/',
     build: {
       outDir: 'dist',
       emptyOutDir: true,
