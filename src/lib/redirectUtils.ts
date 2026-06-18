@@ -27,6 +27,97 @@ function newAnalyticsId(): string {
   return out
 }
 
+// 2.1: Cache API helpers for the redirect hot path. The cache key uses the
+// same `${BASE_URL}/__redirect_cache__/${id}` format that `purgeRedirectCache`
+// already deletes, so an admin write (updateLink / deleteLink / burn) wipes
+// the cache entry as before. The cached value is a 302 Response with the
+// destination, the link id, and the webhook URL encoded in headers — we use
+// headers (not the body) because the Cache API stores the body too, and
+// storing a JSON blob would cost an extra parse on every read.
+//
+// Skip the cache for: password links (handled by /password/:id), burn-on-read
+// links (single-use), expired/disabled links (already short-circuited by
+// dispatchRedirect). Only the `redirect` kind is cached.
+function cacheKey(env: { BASE_URL?: string }, id: string): string {
+  const baseUrl = (env.BASE_URL || 'https://duckshort.cc').replace(/\/+$/, '')
+  return `${baseUrl}/__redirect_cache__/${id}`
+}
+
+interface CachedRedirect {
+  destination: string
+  linkId: string
+  webhookUrl: string | null
+}
+
+async function tryReadCache(env: { BASE_URL?: string; caches?: CacheStorage }, id: string): Promise<CachedRedirect | null> {
+  try {
+    const cache = (caches as unknown as { default: Cache }).default
+    const cached = await cache.match(new Request(cacheKey(env, id)))
+    if (!cached) return null
+    const destination = cached.headers.get('Location')
+    if (!destination) return null
+    return {
+      destination,
+      linkId: cached.headers.get('X-Link-Id') || id,
+      webhookUrl: cached.headers.get('X-Webhook-Url') || null,
+    }
+  } catch {
+    return null
+  }
+}
+
+// Public alias for the cache hit path used by the /:id handler.
+export async function tryReadRedirectCache(env: { BASE_URL?: string }, id: string): Promise<CachedRedirect | null> {
+  return tryReadCache(env, id)
+}
+
+// 2.1: Analytics + webhook fire on a cache hit. Same shape as the cache-miss
+// path in dispatchRedirect, just without the DB link-row lookup. We extract
+// the request metadata (country/referer/UA) at the call site so this helper
+// can be reused by /password/:id verify and the custom-domain middleware.
+export function recordAnalyticsFromCacheHit(
+  ctx: ExecutionContext,
+  db: D1Database,
+  linkId: string,
+  cfIpcountry: string | undefined,
+  referer: string | undefined,
+  ua: string | undefined,
+  webhookUrl: string | null,
+): void {
+  const country = (cfIpcountry || 'unknown').toUpperCase()
+  const ref = refererHostname(referer ?? '').slice(0, 255)
+  const userAgent = (ua || 'unknown').slice(0, 255)
+  recordAnalytics(ctx, db, linkId, country, ref, userAgent, webhookUrl)
+}
+
+function writeCache(
+  ctx: ExecutionContext,
+  env: { BASE_URL?: string },
+  id: string,
+  destination: string,
+  linkId: string,
+  webhookUrl: string | null,
+): void {
+  try {
+    const cache = (caches as unknown as { default: Cache }).default
+    const response = new Response(null, {
+      status: 302,
+      headers: {
+        Location: destination,
+        'X-Link-Id': linkId,
+        'X-Webhook-Url': webhookUrl ?? '',
+        // 24h TTL. The cache is invalidated explicitly by `purgeRedirectCache`
+        // on every update/delete/burn, so a 24h ceiling is just a safety net
+        // for an operator who forgets to call purge.
+        'Cache-Control': 'public, max-age=86400',
+      },
+    })
+    ctx.waitUntil(cache.put(new Request(cacheKey(env, id)), response))
+  } catch {
+    // Cache write failure is non-fatal — the next request will just miss.
+  }
+}
+
 // F-03: Shared link-row SELECT + gate logic for all redirect handlers
 const LINK_ROW_SELECT = `SELECT id, original_url, disabled, expires_at, password_hash,
        utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read,
@@ -45,7 +136,24 @@ export type RedirectResult =
   | { kind: 'burned_out' }
   | { kind: 'redirect'; destination: string; linkId: string; country: string; referer: string; ua: string; webhookUrl: string | null }
 
-// F-03: Unified redirect gate — checks disabled/expired/burn/password then resolves destination
+// F-03: Unified redirect gate — checks disabled/expired/burn/password then resolves destination.
+//
+// CONTRACT (locked by `test/handlers/dispatch-contract.test.ts`):
+//
+//  | `kind`        | Status | Body / Location                          | Side effects                              |
+//  | ------------- | ------ | ---------------------------------------- | ----------------------------------------- |
+//  | `not_found`   | 404    | `{ error: 'Link disabled' }`             | none                                      |
+//  | `expired`     | 410    | `{ error: 'Link expired' }`              | UPDATE links SET disabled=1; purge cache  |
+//  | `password`    | 302    | Location: `/password/:id`                | none                                      |
+//  | `burned_out`  | 404    | `{ error: 'Link disabled' }`             | (burn UPDATE lost the race)               |
+//  | `redirect`    | 302    | Location: <resolved destination>         | INSERT analytics; UPDATE visits; counter; webhook POST |
+//
+// Check order matters: disabled > expired > password > burn > redirect. A link
+// that is BOTH expired AND password-protected returns 410 (the more accurate
+// "no longer available" signal), not 302. A link that is BOTH burn AND
+// password-protected returns 302 to the password page (the user might still
+// have a valid password even though the link would self-destruct on first
+// visit).
 export async function dispatchRedirect(
   c: Context<{ Bindings: Env }>,
   link: RedirectLinkRow
@@ -80,6 +188,15 @@ export async function dispatchRedirect(
     link.utm_source, link.utm_medium, link.utm_campaign,
     country
   )
+
+  // 2.1: cache the final destination so the next request skips the DB SELECTs
+  // for this link. Skip if no ExecutionContext is available (e.g. unit tests
+  // without a real Worker runtime). Also skip for burn_on_read links — the
+  // link is disabled at the same time, so caching the destination would let
+  // the second access bypass the disabled check via the cache hit.
+  if (c.executionCtx && !link.burn_on_read) {
+    writeCache(c.executionCtx, c.env, link.id, destination, link.id, link.webhook_url)
+  }
 
   recordAnalytics(c.executionCtx, c.env.DB, link.id, country, referer, ua, link.webhook_url)
 

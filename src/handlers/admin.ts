@@ -46,16 +46,30 @@ export async function getLinks(c: Context<{ Bindings: Env }>) {
   // P-02: Only fetch sparklines for the current page's link IDs
   if (linkIds.length > 0) {
     const placeholders = linkIds.map(() => '?').join(', ')
-    const sparklineRows = await c.env.DB.prepare(
-      `SELECT link_id, date(timestamp) as day, COUNT(*) as count
-       FROM analytics
-       WHERE timestamp >= ? AND link_id IN (${placeholders})
-       GROUP BY link_id, day`
-    ).bind(sevenDaysAgo, ...linkIds).all<{ link_id: string; day: string; count: number }>()
-
-    for (const row of sparklineRows.results) {
-      if (!sparklineByLink[row.link_id]) sparklineByLink[row.link_id] = {}
-      sparklineByLink[row.link_id][row.day] = row.count
+    // 6.1: read from the pre-aggregated cache. Fall back to analytics if
+    // the cache is empty (test fixtures, first deploy). The window is
+    // expressed in days (link_stats_daily.day is YYYY-MM-DD).
+    const sevenDayWindowDay = "strftime('%Y-%m-%d', 'now', '-6 days')"
+    const cached = await c.env.DB.prepare(
+      `SELECT link_id, day, count FROM link_stats_daily
+       WHERE day >= ${sevenDayWindowDay} AND link_id IN (${placeholders})`
+    ).bind(...linkIds).all<{ link_id: string; day: string; count: number }>()
+    if (cached.results.length > 0) {
+      for (const row of cached.results) {
+        if (!sparklineByLink[row.link_id]) sparklineByLink[row.link_id] = {}
+        sparklineByLink[row.link_id][row.day] = row.count
+      }
+    } else {
+      const sparklineRows = await c.env.DB.prepare(
+        `SELECT link_id, date(timestamp) as day, COUNT(*) as count
+         FROM analytics
+         WHERE timestamp >= ? AND link_id IN (${placeholders})
+         GROUP BY link_id, day`
+      ).bind(sevenDaysAgo, ...linkIds).all<{ link_id: string; day: string; count: number }>()
+      for (const row of sparklineRows.results) {
+        if (!sparklineByLink[row.link_id]) sparklineByLink[row.link_id] = {}
+        sparklineByLink[row.link_id][row.day] = row.count
+      }
     }
   }
 

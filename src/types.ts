@@ -7,6 +7,14 @@ export interface Env {
   // `https://duckshort.pages.dev` so existing deployments keep working without
   // any wrangler.toml change.
   PAGES_URL?: string
+  // 1.2: dedicated HMAC key for session cookies. Rotate independently of
+  // ADMIN_SECRET (the Bearer path). Falls back to ADMIN_SECRET when unset
+  // (backward compat for local dev and pre-1.2 deployments).
+  SESSION_SECRET?: string
+  // 3.2: tunable rate-limit metric sample rate (0..1). Default 0.05 (1 in 20
+  // allowed requests get logged). Set to 0 to disable allowed-traffic logging,
+  // or to 1.0 to log every request. Blocked traffic is always logged.
+  RATE_LIMIT_METRIC_SAMPLE?: string
 }
 
 export interface RedirectLinkRow {

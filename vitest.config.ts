@@ -33,6 +33,10 @@ export default defineWorkersConfig({
         miniflare: {
           bindings: {
             ADMIN_SECRET: 'test-secret',
+            // 1.2: dedicated session HMAC key for tests. Distinct from
+            // ADMIN_SECRET so we can verify the cookie path actually uses
+            // SESSION_SECRET (and doesn't fall through to the legacy key).
+            SESSION_SECRET: 'test-session-secret',
             BASE_URL: 'http://localhost',
           },
           d1Databases: ['DB'],

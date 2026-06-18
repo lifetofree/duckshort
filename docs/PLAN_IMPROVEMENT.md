@@ -419,6 +419,35 @@ All 17 Wave 1 items shipped. Tests: 215/215 passing, typecheck clean, coverage 8
 
 Each item can ship independently. Recommend one item per PR with a test plan and a rollback plan.
 
+### Wave 1 — ✅ CLOSED (2026-06-18)
+
+All 17 Wave 1 items shipped. Tests: 215/215 passing, typecheck clean, coverage 86%/89%/79%/88% (statements/functions/branches/lines) — well above the 60% gate. Production deployment: `main` HEAD `9ed224d`, Worker version `54212963-1492-4e1e-97a5-b3b8c2b5f6de`, Pages alias `duckshort.pages.dev`. CSP follow-up shipped same day after a `'self'` mismatch was caught in production.
+
+### Wave 2 — ✅ CLOSED (2026-06-18)
+
+All 14 Wave 2 items shipped. Tests: 255/255 passing, typecheck clean, coverage 87.6%/91.3%/81.0%/89.8% (statements/functions/branches/lines) — well above the 60% gate. Production deployment pending: `develop` HEAD ready to merge to `main`, Worker version TBD, Pages alias `duckshort.pages.dev`.
+
+| # | Item | Summary | Where |
+|---|------|---------|-------|
+| 1.1 | Content-Security-Policy middleware | `default-src 'self'` + per-surface overrides; skips-if-already-set lets Pages `_headers` win on the SPA proxy | `src/index.tsx` S-19 middleware; `test/middleware/securityHeaders.test.ts` |
+| 1.2 | Separate `SESSION_SECRET` | HMAC key split from `ADMIN_SECRET`; legacy fallback with `session_legacy_key` warn log | `src/lib/auth.ts` `sessionSecret()`; `src/types.ts` `SESSION_SECRET?` |
+| 1.4 | CSRF token (double-submit) | 32-byte random token, `XSRF-TOKEN` non-HttpOnly cookie, `X-XSRF-TOKEN` header echo, constant-time compare. Only enforced for cookie-based auth (Bearer has no attack surface) | `src/lib/auth.ts` `generateCsrfToken/readCsrfCookie/csrfTokensMatch`; `src/index.tsx` `/api/*` middleware; `test/handlers/csrf.test.ts` |
+| 2.1 | Activate Cache API | 24h cache on hot redirects, key matches `purgeRedirectCache` (`${BASE_URL}/__redirect_cache__/${id}`); encoded via Response headers; **critical fix**: skips caching `burn_on_read` links (otherwise second access returned 302 from cache instead of 404) | `src/lib/redirectUtils.ts`; `src/handlers/redirect.tsx`; `test/handlers/redirect-cache.test.ts` |
+| 2.2 | Admin first-paint | 30s `Cache-Control: public, max-age=30` on `/api/stats/global`; substantial `LinkTableSkeleton` lazy chunk (1.78 KB) | `src/handlers/stats.ts`; `frontend/src/components/admin/LinkTableSkeleton.tsx` |
+| 2.4 | Code-split Admin | `React.lazy` on each tab; bundle dropped from 41 KB single Admin chunk to 24 KB initial (Admin.js 9.9 KB + LinkTable.js 14.4 KB) | `frontend/src/pages/Admin.tsx` |
+| 3.1 | Sentry for frontend | `@sentry/react` 8.55, opt-in via `VITE_SENTRY_DSN`, release wired to `__APP_VERSION__`; ErrorBoundary `componentDidCatch` captures and reports | `frontend/src/lib/sentry.ts`; `frontend/src/components/ErrorBoundary.tsx`; `frontend/src/main.tsx` |
+| 3.2 | Rate-limit metrics | 100% sample for blocked (warn), 5% sample for allowed (info), SHA-256 IP hash (16 hex chars) for privacy; tunable via `RATE_LIMIT_METRIC_SAMPLE` | `src/middleware/rateLimit.ts` |
+| 4.4 | `useShortenForm` hook refactor | 13 useState → 4 hooks: `useShortenForm` (url/customId/burn/expiry/error/shortUrl/copy), `useStatsView` (id/limit/submitted), `useGlobalStats` (30s poll), `useLinkStats` (per-link query) | `frontend/src/hooks/*.ts`; `frontend/src/pages/Home.tsx` |
+| 4.6 | `dispatchRedirect` contract | JSDoc CONTRACT table (5 kinds: not_found/expired/password/burned_out/redirect) + 9 contract tests | `src/lib/redirectUtils.ts`; `test/handlers/dispatch-contract.test.ts` |
+| 5.2 | Property-based tests for `pickVariant` | `fast-check@^3`; 6 properties (always valid URL, single variant deterministic, distribution ±5% over 5k trials, weight preservation, empty → '', all-zero → first) | `test/lib/variants.property.test.ts`; `src/lib/variants.ts` |
+| 6.1 | `link_stats_daily` pre-agg | New table + hourly cron `aggregateLinkStatsDaily`; `getStats` + `getLinks` read cache first, fall back to analytics on miss; idempotent re-runs converge via `ON CONFLICT … DO UPDATE` | `migrations/0011_link_stats_daily.sql`; `src/handlers/aggregate.ts`; `test/handlers/aggregate.test.ts` |
+| 7.1 | Staging environment | `[env.staging]` block in `wrangler.toml` (separate D1 + Pages project); `.github/workflows/deploy-staging.yml` triggered on PR open against `develop` | `wrangler.toml`; `.github/workflows/deploy-staging.yml`; `docs/OPERATIONS.md` |
+| 7.2 | Backup runbook | `docs/OPERATIONS.md` — backup cadence, restore procedure (test env only), prod → local copy with sanitization SQL for `password_hash`/`webhook_url`/`custom_domain`, schema drift workflow, migration rules ("never edit applied migrations"), secrets rotation, incident response | `docs/OPERATIONS.md` |
+
+**Bugs discovered + fixed during Wave 2:**
+- `burn_on_read` links were being cached → second access returned 302 from cache instead of 404. Fixed with `&& !link.burn_on_read` guard in `dispatchRedirect` → `writeCache`. Locked by `redirect-cache.test.ts` "burn-on-read links are NOT cached".
+- Initial CSRF implementation required CSRF for all state-changing requests including Bearer auth. Refined: only enforced when `admin_token` cookie is present (Bearer clients have no CSRF attack surface).
+
 ---
 
 ## 11. Non-Goals (do **not** do)
@@ -443,3 +472,4 @@ Everything else is incremental polish.
 
 *Plan generated 2026-06-18 from a review of `develop` @ `214be8b`.*
 *Wave 1 closed 2026-06-18 — 17/17 items shipped.*
+*Wave 2 closed 2026-06-18 — 14/14 items shipped.*

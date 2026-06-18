@@ -21,9 +21,17 @@ export async function getStats(c: Context<{ Bindings: Env }>) {
   // `strftime` with the ISO-8601 template matches the format we store in the
   // `timestamp` column (also ISO-8601 UTC), so lexical comparison is correct.
   const SPARKLINE_WINDOW = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-7 days')"
+  // 6.1: link_stats_daily.day is stored as YYYY-MM-DD, so we use date() here
+  // to compare against the timestamp-anchored window. Two columns, two
+  // formats — we coalesce inside JS below.
+  const SPARKLINE_WINDOW_DAY = "strftime('%Y-%m-%d', 'now', '-6 days')"
 
-  // All 5 queries run in parallel (P-09)
-  const [link, visits, countries, referrers, sparklineRows] = await Promise.all([
+  // All 5 queries run in parallel (P-09). The sparkline read uses the
+  // pre-aggregated cache (link_stats_daily); on a cache miss we fall back
+  // to scanning `analytics` (test fixtures, first deploy). Both queries
+  // share the same result shape — `{ day, count }[]` — so the post-
+  // processing code is identical.
+  const [link, visits, countries, referrers, sparklineCache] = await Promise.all([
     c.env.DB.prepare(
       'SELECT id, original_url, created_at, expires_at, disabled, tag FROM links WHERE id = ?'
     ).bind(id).first(),
@@ -35,9 +43,16 @@ export async function getStats(c: Context<{ Bindings: Env }>) {
       `SELECT referer, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY referer ORDER BY count DESC LIMIT ?`
     ).bind(id, limit).all(),
     c.env.DB.prepare(
-      `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ${SPARKLINE_WINDOW} GROUP BY day`
+      `SELECT day, count FROM link_stats_daily WHERE link_id = ? AND day >= ${SPARKLINE_WINDOW_DAY}`
     ).bind(id).all<{ day: string; count: number }>(),
   ])
+
+  let sparklineRows = sparklineCache
+  if (sparklineCache.results.length === 0) {
+    sparklineRows = await c.env.DB.prepare(
+      `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ${SPARKLINE_WINDOW} GROUP BY day`
+    ).bind(id).all<{ day: string; count: number }>()
+  }
 
   if (!link) return c.json({ error: 'Not found' }, 404)
 
@@ -93,5 +108,10 @@ export async function getGlobalStats(c: Context<{ Bindings: Env }>) {
   const hourlyVisits = hourlyResult?.count ?? 0
   const mood: Mood = getMood(hourlyVisits)
 
+  // 2.2: 30s edge cache. The global stats page polls every 30s, so
+  // max-age=30 collapses duplicate fetches across users onto a single
+  // origin read. The values are aggregate (not per-user), so the cache
+  // is safe to share.
+  c.header('Cache-Control', 'public, max-age=30')
   return c.json({ totalVisits, hourlyVisits, mood })
 }
