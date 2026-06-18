@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { Sentry } from '../lib/sentry'
 
 interface State {
   hasError: boolean
@@ -10,6 +11,15 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
 
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: { componentStack?: string }) {
+    // 3.1: forward uncaught render errors to Sentry. No-op when Sentry
+    // is disabled (no DSN configured).
+    Sentry.withScope((scope) => {
+      scope.setExtra('componentStack', errorInfo.componentStack ?? '')
+      Sentry.captureException(error)
+    })
   }
 
   render() {

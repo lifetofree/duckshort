@@ -8,6 +8,56 @@ import { SESSION_MAX_AGE_SECONDS } from './constants'
 // effectively turning this into a sliding 1h session for active users.
 const SESSION_MAX_AGE = SESSION_MAX_AGE_SECONDS
 
+// 1.2: Pick the HMAC key for session tokens. Prefer the dedicated SESSION_SECRET
+// so it can be rotated independently of ADMIN_SECRET. Fall back to ADMIN_SECRET
+// for local dev and pre-1.2 deployments that haven't provisioned SESSION_SECRET
+// yet — that fallback path is also covered by a `session_legacy_key` log line
+// so the on-call can spot deployments that still need to provision the secret.
+export function sessionSecret(env: { ADMIN_SECRET: string; SESSION_SECRET?: string }): {
+  key: string
+  legacy: boolean
+} {
+  if (env.SESSION_SECRET) return { key: env.SESSION_SECRET, legacy: false }
+  return { key: env.ADMIN_SECRET, legacy: true }
+}
+
+// 1.4: 32-byte random token used as the XSRF-TOKEN cookie value. 64 hex chars;
+// that's 256 bits of entropy — enough that an attacker can't guess it. The
+// token is generated at login and is independent of the session token.
+export function generateCsrfToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
+}
+
+// 1.4: read the XSRF-TOKEN cookie value from a Cookie header. Returns null
+// when the cookie is absent or empty.
+export function readCsrfCookie(cookieHeader: string | null | undefined): string | null {
+  if (!cookieHeader) return null
+  for (const part of cookieHeader.split(';')) {
+    const trimmed = part.trim()
+    if (trimmed.startsWith('XSRF-TOKEN=')) {
+      const value = trimmed.slice('XSRF-TOKEN='.length)
+      return value || null
+    }
+  }
+  return null
+}
+
+// 1.4: constant-time check that the XSRF-TOKEN cookie and X-XSRF-TOKEN header
+// carry the same value. Uses the same SHA-256 + timingSafeEqual pattern as
+// `timingSafeEqual` above so the comparison itself is not a side channel.
+export async function csrfTokensMatch(
+  cookieHeader: string | null | undefined,
+  headerValue: string | null | undefined,
+): Promise<boolean> {
+  const cookie = readCsrfCookie(cookieHeader)
+  if (!cookie || !headerValue) return false
+  if (cookie.length !== headerValue.length) return false
+  return timingSafeEqual(cookie, headerValue)
+}
+
 export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   const encoder = new TextEncoder()
   // Hash both sides first so lengths are always equal, preventing timing leaks via early-return
@@ -55,7 +105,7 @@ async function verifySessionToken(token: string, secret: string): Promise<boolea
 }
 
 export async function requireAuth(
-  env: { ADMIN_SECRET: string },
+  env: { ADMIN_SECRET: string; SESSION_SECRET?: string },
   header: string | null | undefined,
   cookieHeader?: string | null
 ): Promise<Response | null> {
@@ -75,6 +125,14 @@ export async function requireAuth(
     return unauthorized
   }
 
+  // 1.2: pick the HMAC key for session verification. Falls back to
+  // ADMIN_SECRET when SESSION_SECRET is unset; legacy fallback is logged once
+  // per request so the on-call sees it in the dashboard.
+  const session = sessionSecret(env)
+  if (session.legacy) {
+    logger.warn('session_legacy_key', { reason: 'SESSION_SECRET unset, using ADMIN_SECRET' })
+  }
+
   // Bearer path: used by CLI / API clients — compares directly to ADMIN_SECRET
   if (header?.startsWith('Bearer ')) {
     const token = header.slice(7)
@@ -82,13 +140,14 @@ export async function requireAuth(
     logFailure('bearer_mismatch')
   }
 
-  // Cookie path: uses HMAC-signed session token, not the raw secret (S-14)
+  // Cookie path: uses HMAC-signed session token, not the raw secret (S-14).
+  // The HMAC key is SESSION_SECRET (preferred) or ADMIN_SECRET (legacy).
   if (cookieHeader) {
     const token = cookieHeader.split(';').map(s => s.trim())
       .find(s => s.startsWith('admin_token='))?.slice('admin_token='.length)
     if (token) {
-      if (await verifySessionToken(token, env.ADMIN_SECRET)) return null
-      logFailure(tokenExpired(token, env.ADMIN_SECRET) ? 'session_expired' : 'session_signature_mismatch')
+      if (await verifySessionToken(token, session.key)) return null
+      logFailure(tokenExpired(token, session.key) ? 'session_expired' : 'session_signature_mismatch')
     } else {
       logFailure('cookie_missing')
     }

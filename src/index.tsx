@@ -12,10 +12,11 @@ import { getStats, getGlobalStats } from './handlers/stats'
 import { previewLink } from './handlers/preview'
 import { showPasswordEntry, verifyPasswordEntry } from './handlers/password'
 import { cleanupExpiredLinks } from './handlers/cleanup'
+import { aggregateLinkStatsDaily } from './handlers/aggregate'
 import { health } from './handlers/health'
 import { rateLimit, type RateLimitBucket } from './middleware/rateLimit'
 import { resolveCustomDomain } from './middleware/customDomain'
-import { requireAuth, requireAuthFromContext } from './lib/auth'
+import { requireAuth, requireAuthFromContext, csrfTokensMatch } from './lib/auth'
 import { pagesOrigin } from './lib/env'
 
 const app = new Hono<{ Bindings: Env }>()
@@ -35,6 +36,37 @@ app.use('*', async (c: Context<{ Bindings: Env }>, next: Next) => {
   }
   if (!c.res.headers.get('Referrer-Policy')) {
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  }
+  // 1.1: Content-Security-Policy. The default covers both the SSR pages and
+  // the API JSON. For SSR pages (`/preview/:id`, `/password/:id`, 404) we
+  // need:
+  //   - 'unsafe-inline' for style-src — Layout.tsx ships a neon-themed
+  //     <style> block
+  //   - https://fonts.googleapis.com / https://fonts.gstatic.com — Orbitron
+  //     + JetBrains Mono via the Google Fonts stylesheet
+  //   - form-action 'self' — the password form POSTs back to the same origin
+  // For API JSON, the CSP is technically not used (the response is not a
+  // browsing context) but it is harmless and provides defence-in-depth if a
+  // future bug ever returns HTML in a JSON endpoint.
+  // Skip when a handler has already set the header — the Pages `app.get('/')`
+  // proxy forwards the Pages `_headers` CSP, which is permissive enough for
+  // the SPA bundle + Cloudflare Web Analytics beacon.
+  if (!c.res.headers.get('Content-Security-Policy')) {
+    c.res.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: https:",
+        "connect-src 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "object-src 'none'",
+      ].join('; ')
+    )
   }
 })
 
@@ -71,9 +103,35 @@ app.get('/api/stats/:id', getStats)
 // Auth middleware for all remaining /api/* routes (S-10: rate-limited + authed).
 // Uses `requireAuthFromContext` so the auth_failed log line includes path / ip
 // (1.3) — useful for spotting brute-force patterns in Cloudflare's dashboard.
+//
+// 1.4: double-submit CSRF check for state-changing requests. Runs after the
+// auth check so unauthenticated callers see a 401, not a 403 — and so the
+// login route (registered before this middleware) is exempt. The XSRF-TOKEN
+// cookie is non-HttpOnly, so the SPA can read it and echo it back as the
+// X-XSRF-TOKEN header. Constant-time match via timingSafeEqual.
+//
+// CSRF only applies to cookie-based auth — a Bearer header is never
+// auto-attached by the browser, so the CSRF attack model does not apply.
+// We detect cookie auth by the presence of the `admin_token` cookie.
+const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 app.use('/api/*', apiRateLimit, async (c, next) => {
   const auth = await requireAuthFromContext(c)
   if (auth) return auth
+  if (STATE_CHANGING_METHODS.has(c.req.method)) {
+    const cookieHeader = c.req.header('cookie') ?? ''
+    if (cookieHeader.includes('admin_token=')) {
+      const headerValue = c.req.header('X-XSRF-TOKEN')
+      const match = await csrfTokensMatch(cookieHeader, headerValue)
+      if (!match) {
+        appLogger.warn('csrf_failed', {
+          method: c.req.method,
+          path: c.req.path,
+          ip: c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim(),
+        })
+        return c.json({ error: 'CSRF token mismatch' }, 403)
+      }
+    }
+  }
   return next()
 })
 
@@ -165,6 +223,14 @@ export { RateLimiter } from './durableObjects/RateLimiter'
 export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // 6.1: Pre-aggregate analytics → link_stats_daily hourly so the 7-day
+    // sparkline queries can read from a tiny index rather than scan
+    // analytics. Idempotent, so multiple invocations converge.
+    ctx.waitUntil(
+      aggregateLinkStatsDaily(env).catch((err) => {
+        appLogger.error('cron_aggregate_failed', { error: String(err) })
+      })
+    )
     ctx.waitUntil(
       cleanupExpiredLinks(env).then(({ deleted }) => {
         appLogger.info('cron_cleanup', { deleted })

@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode } from 'react'
 import enTranslations from '../locales/lang-en.json'
 
 type TranslationParams = Record<string, string | number>
+export type { TranslationParams }
 
 interface Translations {
   [key: string]: string | Translations
@@ -9,6 +10,7 @@ interface Translations {
 
 interface I18nContextType {
   t: (key: string, params?: TranslationParams) => string
+
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined)

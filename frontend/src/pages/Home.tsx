@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { useQuery } from '@tanstack/react-query'
-import DuckMoodLogo, { type DuckMood } from '../components/DuckMoodLogo'
+import DuckMoodLogo from '../components/DuckMoodLogo'
 import { useTranslation } from '../lib/i18n'
 import { QuackCounter } from '../components/QuackCounter'
 import { ShortenForm } from '../components/ShortenForm'
 import { StatsView } from '../components/StatsView'
 import { ResultModal } from '../components/ResultModal'
-import { CUSTOM_ID_REGEX } from '../lib/constants'
-
-const API = import.meta.env.VITE_API_URL ?? ''
+import { useShortenForm } from '../hooks/useShortenForm'
+import { useStatsView } from '../hooks/useStatsView'
+import { useGlobalStats } from '../hooks/useGlobalStats'
+import { useLinkStats } from '../hooks/useLinkStats'
 
 type Tab = 'shorten' | 'stats'
 
@@ -17,96 +17,17 @@ export default function HomePage() {
   const { t: translate } = useTranslation()
   const [tab, setTab] = useState<Tab>('shorten')
 
-  const [url, setUrl] = useState('')
-  const [customId, setCustomId] = useState('')
-  const [burnOnRead, setBurnOnRead] = useState(false)
-  const [expiry, setExpiry] = useState(0)
-  const [customExpiry, setCustomExpiry] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [shortUrl, setShortUrl] = useState<string | null>(null)
-  const [copySuccess, setCopySuccess] = useState(false)
-
-  const [statsId, setStatsId] = useState('')
-  const [statsLimit, setStatsLimit] = useState(10)
-  const [submittedStatsId, setSubmittedStatsId] = useState<string | null>(null)
-
-  const { data: globalStats, error: globalStatsError } = useQuery({
-    queryKey: ['globalStats'],
-    queryFn: () => fetch(`${API}/api/stats/global`).then(r => r.json()),
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
-  })
-
-  const { data: stats, isLoading: statsLoading, error: statsQueryError } = useQuery({
-    queryKey: ['linkStats', submittedStatsId, statsLimit],
-    queryFn: () => fetch(`${API}/api/stats/${submittedStatsId}?limit=${statsLimit}`).then(r => r.json()),
-    enabled: !!submittedStatsId,
-  })
-
-  const totalVisits = globalStats?.totalVisits ?? null
-  const mood: DuckMood = globalStatsError ? 'ERROR' : (globalStats?.mood as DuckMood) ?? 'ACTIVE'
+  // 4.4: each behavioural cluster is a self-contained custom hook.
+  const shorten = useShortenForm({ t: translate })
+  const statsView = useStatsView()
+  const { totalVisits, mood } = useGlobalStats()
+  const { stats, isLoading: statsLoading, error: statsQueryError } = useLinkStats(
+    statsView.submittedStatsId,
+    statsView.statsLimit,
+  )
   const statsError = statsQueryError ? translate('home.statsForm.error') : stats?.error ?? null
-
-  const handleShorten = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!url.trim()) return
-    try { new URL(url) } catch {
-      setError(translate('home.shortenForm.errors.invalidUrl'))
-      return
-    }
-    if (customId.trim() && !CUSTOM_ID_REGEX.test(customId.trim())) {
-      setError(translate('home.shortenForm.errors.invalidCustomId'))
-      return
-    }
-    setIsLoading(true)
-    setError(null)
-    try {
-      const expiresIn = expiry === -1
-        ? (parseInt(customExpiry, 10) * 3600 || undefined)
-        : (expiry || undefined)
-      const res = await fetch(`${API}/api/links`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ url, customId: customId.trim() || undefined, burn_on_read: burnOnRead, expiresIn }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setShortUrl(data.shortUrl)
-        setCustomId('')
-        setBurnOnRead(false)
-      } else {
-        setError(data.error ?? translate('home.shortenForm.errors.failedToShorten', { status: res.status }))
-      }
-    } catch (err) {
-      console.error('Shorten error:', err)
-      setError(translate('home.shortenForm.errors.networkError'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleViewStats = async (e: React.FormEvent) => {
-    e.preventDefault()
-    let id = statsId.trim()
-    if (!id) return
-    try {
-      const urlObj = new URL(id)
-      const pathParts = urlObj.pathname.split('/').filter(Boolean)
-      if (pathParts.length > 0) id = pathParts[pathParts.length - 1]
-    } catch { /* not a URL, use as-is */ }
-    setSubmittedStatsId(id)
-  }
-
-  const handleCopy = async () => {
-    if (!shortUrl) return
-    try {
-      await navigator.clipboard.writeText(shortUrl)
-      setCopySuccess(true)
-      setTimeout(() => setCopySuccess(false), 2000)
-    } catch { /* ignore */ }
-  }
+  // 4.4: keep the StatsView prop compatible with its StatsData | null type.
+  const statsViewData = (stats ?? null) as unknown as React.ComponentProps<typeof StatsView>['stats']
 
   return (
     <div
@@ -153,7 +74,7 @@ export default function HomePage() {
               aria-selected={tab === t}
               aria-controls={`panel-${t}`}
               id={`tab-${t}`}
-              onClick={() => { setTab(t); setError(null) }}
+              onClick={() => { setTab(t); shorten.setError(null) }}
               style={{
                 padding: '1.1rem 0.5rem', marginRight: '1.75rem', background: 'none', border: 'none',
                 borderBottom: tab === t ? '2px solid var(--neon-cyan)' : '2px solid transparent',
@@ -172,22 +93,22 @@ export default function HomePage() {
           {tab === 'shorten' ? (
             <motion.div key="shorten" role="tabpanel" id="panel-shorten" aria-labelledby="tab-shorten" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 8 }} style={{ padding: '1.75rem' }}>
               <ShortenForm
-                url={url} onUrlChange={setUrl}
-                customId={customId} onCustomIdChange={setCustomId}
-                burnOnRead={burnOnRead} onBurnOnReadChange={setBurnOnRead}
-                expiry={expiry} onExpiryChange={setExpiry}
-                customExpiry={customExpiry} onCustomExpiryChange={setCustomExpiry}
-                isLoading={isLoading} error={error}
-                onSubmit={handleShorten}
+                url={shorten.url} onUrlChange={shorten.setUrl}
+                customId={shorten.customId} onCustomIdChange={shorten.setCustomId}
+                burnOnRead={shorten.burnOnRead} onBurnOnReadChange={shorten.setBurnOnRead}
+                expiry={shorten.expiry} onExpiryChange={shorten.setExpiry}
+                customExpiry={shorten.customExpiry} onCustomExpiryChange={shorten.setCustomExpiry}
+                isLoading={shorten.isLoading} error={shorten.error}
+                onSubmit={shorten.handleShorten}
               />
             </motion.div>
           ) : (
             <motion.div key="stats" role="tabpanel" id="panel-stats" aria-labelledby="tab-stats" initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }} style={{ padding: '1.75rem' }}>
               <StatsView
-                statsId={statsId} onStatsIdChange={setStatsId}
+                statsId={statsView.statsId} onStatsIdChange={statsView.setStatsId}
                 statsLoading={statsLoading} statsError={statsError}
-                stats={stats} onSubmit={handleViewStats}
-                statsLimit={statsLimit} onStatsLimitChange={setStatsLimit}
+                stats={statsViewData} onSubmit={statsView.handleViewStats}
+                statsLimit={statsView.statsLimit} onStatsLimitChange={statsView.setStatsLimit}
               />
             </motion.div>
           )}
@@ -201,11 +122,11 @@ export default function HomePage() {
         {translate('home.footer', { version: __APP_VERSION__ })} - {translate('poweredBy')}
       </motion.p>
 
-      {shortUrl && (
+      {shorten.shortUrl && (
         <ResultModal
-          shortUrl={shortUrl} copySuccess={copySuccess}
-          onCopy={handleCopy}
-          onClose={() => { setShortUrl(null); setCopySuccess(false) }}
+          shortUrl={shorten.shortUrl} copySuccess={shorten.copySuccess}
+          onCopy={shorten.handleCopy}
+          onClose={shorten.closeResult}
         />
       )}
     </div>

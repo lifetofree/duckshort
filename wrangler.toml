@@ -43,3 +43,29 @@ enabled = true
 [[routes]]
 pattern = "duckshort.cc/*"
 zone_name = "duckshort.cc"
+
+# 7.1: Staging environment. Overrides the D1 binding, BASE_URL, and
+# PAGES_URL so PR builds land on a separate DB + Pages project without
+# touching production. Deploy with `wrangler deploy --env staging`.
+[env.staging]
+name = "duckshort-staging"
+
+[env.staging.vars]
+BASE_URL = "https://staging.duckshort.cc"
+PAGES_URL = "https://staging.duckshort.pages.dev"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "duckshort-db-staging"
+database_id = "00000000-0000-0000-0000-000000000000"  # Replace with the real staging DB id (see docs/OPERATIONS.md §staging)
+
+[[env.staging.durable_objects.bindings]]
+name = "RATE_LIMITER"
+class_name = "RateLimiter"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["RateLimiter"]
+
+[env.staging.observability]
+enabled = true

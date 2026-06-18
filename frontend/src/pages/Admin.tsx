@@ -1,12 +1,26 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { AnimatePresence } from 'motion/react'
 import type { Link, AdminTab, GlobalStats, LinkStats } from '../components/admin/types'
 import AdminAuthGate from '../components/admin/AdminAuthGate'
 import AdminTabs from '../components/admin/AdminTabs'
-import LinkTable from '../components/admin/LinkTable'
-import LinkCreateForm from '../components/admin/LinkCreateForm'
-import GlobalStatsView from '../components/admin/GlobalStatsView'
-import PerLinkStatsView from '../components/admin/PerLinkStatsView'
+
+// 2.4: code-split each Admin tab so the initial Admin route only loads the
+// LinkTable (the default tab). Switching to Create / Stats / Per-link stats
+// triggers a lazy chunk fetch — cuts the Admin page first-paint cost.
+const LinkTable = lazy(() => import('../components/admin/LinkTable'))
+const LinkCreateForm = lazy(() => import('../components/admin/LinkCreateForm'))
+const GlobalStatsView = lazy(() => import('../components/admin/GlobalStatsView'))
+const PerLinkStatsView = lazy(() => import('../components/admin/PerLinkStatsView'))
+// 2.2: substantial skeleton for the Links tab first-paint. Shown via the
+// Suspense fallback so the user sees a styled shell while the chunk + DB
+// fetch resolve.
+const LinkTableSkeleton = lazy(() => import('../components/admin/LinkTableSkeleton'))
+
+const TabFallback = () => (
+  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.75rem', letterSpacing: '2px' }}>
+    LOADING TAB…
+  </div>
+)
 
 const API = import.meta.env.VITE_API_URL ?? ''
 
@@ -251,65 +265,79 @@ export default function AdminPage() {
 
         <AnimatePresence mode="wait">
           {tab === 'links' && (
-            <LinkTable
-              allLinks={allLinks}
-              filteredLinks={filteredLinks}
-              loading={loading}
-              loadingMore={loadingMore}
-              hasMore={hasMore}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              statusFilter={statusFilter}
-              setStatusFilter={setStatusFilter}
-              selectedLinks={selectedLinks}
-              setSelectedLinks={setSelectedLinks}
-              onRefresh={() => fetchLinks()}
-              onLoadMore={() => fetchLinks(true)}
-              onBulkDelete={handleBulkDelete}
-              onToggleLink={handleToggleLink}
-              onExtendExpiry={handleExtendExpiry}
-              onDeleteLink={handleDeleteLink}
-              onSelectStats={(id) => {
-                setSelectedLinkForStats(id)
-                setTab('link-stats')
-                fetchLinkStats(id, statsLimit)
-              }}
-            />
+            <Suspense fallback={<TabFallback />}>
+              {loading && allLinks.length === 0 ? (
+                <Suspense fallback={<TabFallback />}>
+                  <LinkTableSkeleton />
+                </Suspense>
+              ) : (
+                <LinkTable
+                  allLinks={allLinks}
+                  filteredLinks={filteredLinks}
+                  loading={loading}
+                  loadingMore={loadingMore}
+                  hasMore={hasMore}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  statusFilter={statusFilter}
+                  setStatusFilter={setStatusFilter}
+                  selectedLinks={selectedLinks}
+                  setSelectedLinks={setSelectedLinks}
+                  onRefresh={() => fetchLinks()}
+                  onLoadMore={() => fetchLinks(true)}
+                  onBulkDelete={handleBulkDelete}
+                  onToggleLink={handleToggleLink}
+                  onExtendExpiry={handleExtendExpiry}
+                  onDeleteLink={handleDeleteLink}
+                  onSelectStats={(id) => {
+                    setSelectedLinkForStats(id)
+                    setTab('link-stats')
+                    fetchLinkStats(id, statsLimit)
+                  }}
+                />
+              )}
+            </Suspense>
           )}
 
           {tab === 'create' && (
-            <LinkCreateForm onSuccess={() => {
-              setTab('links')
-              fetchLinks()
-            }} />
+            <Suspense fallback={<TabFallback />}>
+              <LinkCreateForm onSuccess={() => {
+                setTab('links')
+                fetchLinks()
+              }} />
+            </Suspense>
           )}
 
           {tab === 'stats' && globalStats && (
-            <GlobalStatsView
-              globalStats={globalStats}
-              topLinks={topLinks}
-              onSelectLink={(id) => {
-                setSelectedLinkForStats(id)
-                setTab('link-stats')
-                fetchLinkStats(id, statsLimit)
-              }}
-            />
+            <Suspense fallback={<TabFallback />}>
+              <GlobalStatsView
+                globalStats={globalStats}
+                topLinks={topLinks}
+                onSelectLink={(id) => {
+                  setSelectedLinkForStats(id)
+                  setTab('link-stats')
+                  fetchLinkStats(id, statsLimit)
+                }}
+              />
+            </Suspense>
           )}
 
           {tab === 'link-stats' && selectedLinkForStats && linkStats && (
-            <PerLinkStatsView
-              selectedLinkForStats={selectedLinkForStats}
-              linkStats={linkStats}
-              allLinks={allLinks}
-              statsLimit={statsLimit}
-              setStatsLimit={setStatsLimit}
-              fetchLinkStats={fetchLinkStats}
-              onBack={() => {
-                setTab('links')
-                setSelectedLinkForStats(null)
-                setLinkStats(null)
-              }}
-            />
+            <Suspense fallback={<TabFallback />}>
+              <PerLinkStatsView
+                selectedLinkForStats={selectedLinkForStats}
+                linkStats={linkStats}
+                allLinks={allLinks}
+                statsLimit={statsLimit}
+                setStatsLimit={setStatsLimit}
+                fetchLinkStats={fetchLinkStats}
+                onBack={() => {
+                  setTab('links')
+                  setSelectedLinkForStats(null)
+                  setLinkStats(null)
+                }}
+              />
+            </Suspense>
           )}
         </AnimatePresence>
       </div>

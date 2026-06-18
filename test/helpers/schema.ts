@@ -6,12 +6,15 @@ export async function applySchema() {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS link_variants (id TEXT PRIMARY KEY, link_id TEXT NOT NULL, destination_url TEXT NOT NULL, weight INTEGER DEFAULT 1)`)
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS geo_redirects (id TEXT PRIMARY KEY, link_id TEXT NOT NULL, country_code TEXT NOT NULL, destination_url TEXT NOT NULL)`)
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS counters (key TEXT PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)`)
+  // 6.1: pre-aggregated daily counts per link. Matches migration 0011.
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS link_stats_daily (link_id TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (link_id, day))`)
 }
 
 export async function clearAll() {
   await env.DB.prepare('DELETE FROM geo_redirects').run()
   await env.DB.prepare('DELETE FROM link_variants').run()
   await env.DB.prepare('DELETE FROM analytics').run()
+  await env.DB.prepare('DELETE FROM link_stats_daily').run()
   await env.DB.prepare('DELETE FROM links').run()
   await env.DB.prepare('DELETE FROM counters').run()
 }
