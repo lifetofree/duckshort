@@ -22,7 +22,7 @@ const TabFallback = () => (
   </div>
 )
 
-const API = import.meta.env.VITE_API_URL ?? ''
+const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -49,12 +49,13 @@ export default function AdminPage() {
       const res = await fetch(`${API}/api/links${cursorParam}`, {
         credentials: 'include',
       })
-      if (!res.ok) throw new Error('Failed to fetch links')
+      if (!res.ok) throw new Error(`Failed to fetch links: ${res.status} ${res.statusText}`)
       const data = await res.json() as { links: Link[]; nextCursor: string | null }
       if (append) setAllLinks(prev => [...prev, ...data.links]); else setAllLinks(data.links)
       setHasMore(!!data.nextCursor)
     } catch (err) {
-      setError('Failed to load links')
+      console.error('Failed to fetch links', err)
+      setError(err instanceof Error ? err.message : 'Failed to load links')
     } finally {
       if (append) setLoadingMore(false); else setLoading(false)
     }
@@ -66,7 +67,7 @@ export default function AdminPage() {
       const data = await res.json()
       setGlobalStats(data)
     } catch (err) {
-      console.error('Failed to fetch global stats')
+      console.error('Failed to fetch global stats', err)
     }
   }
 
@@ -76,9 +77,11 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json()
         setLinkStats(data)
+      } else {
+        console.error('Failed to fetch link stats', { status: res.status, statusText: res.statusText, url: `${API}/api/stats/${linkId}?limit=${limit}` })
       }
     } catch (err) {
-      console.error('Failed to fetch link stats')
+      console.error('Failed to fetch link stats', err)
     }
   }
 

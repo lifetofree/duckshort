@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { LinkStatsData } from './useStatsView'
 
-const API = import.meta.env.VITE_API_URL ?? ''
+const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 interface UseLinkStatsResult {
   stats: LinkStatsData | undefined

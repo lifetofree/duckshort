@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { DuckMood } from '../components/DuckMoodLogo'
 
-const API = import.meta.env.VITE_API_URL ?? ''
+const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 export type GlobalStats = {
   totalVisits: number

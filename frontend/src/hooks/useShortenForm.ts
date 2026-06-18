@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { CUSTOM_ID_REGEX } from '../lib/constants'
 import type { TranslationParams } from '../lib/i18n'
 
-const API = import.meta.env.VITE_API_URL ?? ''
+const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 interface ShortenResponse {
   shortUrl?: string
