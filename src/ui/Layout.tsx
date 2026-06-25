@@ -1,11 +1,13 @@
 /** @jsxImportSource hono/jsx */
 
+import type { Child } from 'hono/jsx'
+
 interface Props {
   title: string
   ogDescription?: string
   ogImage?: string
   ogUrl?: string
-  children?: any
+  children?: Child
 }
 
 export default function Layout({ title, ogDescription, ogImage, ogUrl, children }: Props) {
