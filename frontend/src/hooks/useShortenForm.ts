@@ -95,6 +95,12 @@ export function useShortenForm({ t }: UseShortenFormOptions): UseShortenFormResu
           setShortUrl(data.shortUrl ?? null)
           setCustomId('')
           setBurnOnRead(false)
+        } else if (res.status === 401) {
+          // Defense-in-depth: the home form is now public, so this should
+          // never fire in practice. If it ever does (e.g. a regression that
+          // puts the endpoint behind auth again), show a friendly message
+          // instead of the raw server string.
+          setError(t('home.shortenForm.errors.unauthorized'))
         } else {
           setError(data.error ?? t('home.shortenForm.errors.failedToShorten', { status: res.status }))
         }

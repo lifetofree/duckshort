@@ -46,13 +46,37 @@ describe('GET /api/links', () => {
 describe('POST /api/links', () => {
   beforeEach(async () => { await applySchema(); await clearLinks() })
 
-  it('returns 401 without auth', async () => {
+  it('accepts public submissions with only basic fields (no auth required)', async () => {
     const res = await req('/api/links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'https://example.com' }),
     })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { id: string; shortUrl: string }
+    expect(body.id).toHaveLength(8)
+    expect(body.shortUrl).toContain(body.id)
+  })
+
+  it('rejects submissions with admin-only fields (tag) when unauthenticated', async () => {
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com', tag: 'campaign-x' }),
+    })
     expect(res.status).toBe(401)
+  })
+
+  it('accepts submissions with admin-only fields (webhook_url) when authenticated', async () => {
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: AUTH },
+      body: JSON.stringify({
+        url: 'https://example.com',
+        webhook_url: 'https://hooks.example.com/hook',
+      }),
+    })
+    expect(res.status).toBe(200)
   })
 
   it('creates a link and returns shortUrl', async () => {

@@ -140,11 +140,20 @@ describe('CSRF protection (1.4)', () => {
     expect([200, 201]).toContain(res.status)
   })
 
-  it('unauthenticated POST /api/links returns 401 (auth before CSRF)', async () => {
+  it('anonymous POST /api/links with only public fields succeeds (no auth required)', async () => {
     const res = await req('/api/links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'https://example.com' }),
+    })
+    expect(res.status).toBe(200)
+  })
+
+  it('anonymous POST /api/links with admin-only fields returns 401', async () => {
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com', webhook_url: 'https://hooks.example.com/hook' }),
     })
     expect(res.status).toBe(401)
   })

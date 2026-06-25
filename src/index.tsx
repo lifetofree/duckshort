@@ -100,6 +100,59 @@ app.post('/api/logout', logout)
 app.get('/api/stats/global', getGlobalStats)
 app.get('/api/stats/:id', getStats)
 
+// Field-aware auth guard for POST /api/links. The home-page shorten form is
+// public, so this endpoint accepts anonymous submissions of the basic fields
+// (url, customId, burn_on_read, expiresIn, password). Admin-only fields
+// (tag, webhook_url, utm_*, og_*, variants) require authentication, and any
+// request carrying an `admin_token` cookie must also include a matching
+// X-XSRF-TOKEN header to block cross-site link creation from a logged-in
+// admin's browser. The middleware clones the request body so the createLink
+// handler can still call `c.req.json()` after the peek.
+const ADMIN_ONLY_FIELDS = [
+  'tag', 'webhook_url',
+  'utm_source', 'utm_medium', 'utm_campaign',
+  'og_title', 'og_description', 'og_image',
+  'variants',
+]
+const linksAuthGuard = async (c: Context<{ Bindings: Env }>, next: Next) => {
+  let body: Record<string, unknown> = {}
+  try {
+    body = (await c.req.raw.clone().json()) as Record<string, unknown>
+  } catch {
+    body = {}
+  }
+
+  const hasAdminField = ADMIN_ONLY_FIELDS.some((f) => {
+    const v = body[f]
+    return v !== undefined && v !== null && v !== ''
+  })
+
+  if (hasAdminField) {
+    const auth = await requireAuthFromContext(c)
+    if (auth) return auth
+  }
+
+  const cookieHeader = c.req.header('cookie') ?? ''
+  if (cookieHeader.includes('admin_token=')) {
+    const headerValue = c.req.header('X-XSRF-TOKEN')
+    const match = await csrfTokensMatch(cookieHeader, headerValue)
+    if (!match) {
+      appLogger.warn('csrf_failed', {
+        method: c.req.method,
+        path: c.req.path,
+        ip: c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim(),
+      })
+      return c.json({ error: 'CSRF token mismatch' }, 403)
+    }
+  }
+
+  return next()
+}
+
+// Public path for the home-page shorten form. Registered BEFORE the
+// /api/* catch-all auth middleware so anonymous submissions are accepted.
+app.post('/api/links', apiRateLimit, linksAuthGuard, createLink)
+
 // Auth middleware for all remaining /api/* routes (S-10: rate-limited + authed).
 // Uses `requireAuthFromContext` so the auth_failed log line includes path / ip
 // (1.3) — useful for spotting brute-force patterns in Cloudflare's dashboard.
@@ -137,9 +190,11 @@ app.use('/api/*', apiRateLimit, async (c, next) => {
 
 // Protected API routes — registered AFTER the auth middleware so they inherit auth + rate-limit
 // /api/auth/check is here (not before the middleware) to prevent the auth-bypass S-13
+// POST /api/links is registered ABOVE the auth middleware so anonymous visitors
+// can submit the public shorten form (see linksAuthGuard for the field-aware
+// auth/CSRF logic).
 app.get('/api/auth/check', checkAuth)
 app.get('/api/links', getLinks)
-app.post('/api/links', createLink)
 app.post('/api/links/bulk-delete', bulkDeleteLinks)
 app.patch('/api/links/:id', updateLink)
 app.delete('/api/links/:id', deleteLink)
