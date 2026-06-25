@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import type { Link, AdminTab, GlobalStats, LinkStats } from '../components/admin/types'
 import AdminAuthGate from '../components/admin/AdminAuthGate'
 import AdminTabs from '../components/admin/AdminTabs'
+import { apiFetch } from '../lib/api-fetch'
 
 // 2.4: code-split each Admin tab so the initial Admin route only loads the
 // LinkTable (the default tab). Switching to Create / Stats / Per-link stats
@@ -87,10 +88,9 @@ export default function AdminPage() {
 
   const handleToggleLink = async (id: string) => {
     try {
-      const res = await fetch(`${API}/api/links/${id}`, {
+      const res = await apiFetch(`${API}/api/links/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ action: 'toggle' })
       })
       if (res.ok) {
@@ -103,10 +103,9 @@ export default function AdminPage() {
 
   const handleExtendExpiry = async (id: string, hours: number = 24) => {
     try {
-      const res = await fetch(`${API}/api/links/${id}`, {
+      const res = await apiFetch(`${API}/api/links/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ action: 'extend', extendHours: hours })
       })
       if (res.ok) {
@@ -121,9 +120,8 @@ export default function AdminPage() {
     if (!confirm('Are you sure you want to delete this link?')) return
 
     try {
-      const res = await fetch(`${API}/api/links/${id}`, {
+      const res = await apiFetch(`${API}/api/links/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       })
       if (res.ok) {
         fetchLinks()
@@ -138,10 +136,9 @@ export default function AdminPage() {
     if (!confirm(`Are you sure you want to delete ${selectedLinks.size} link(s)?`)) return
 
     try {
-      const res = await fetch(`${API}/api/links/bulk-delete`, {
+      const res = await apiFetch(`${API}/api/links/bulk-delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ ids: Array.from(selectedLinks) })
       })
       if (res.ok) {
@@ -155,10 +152,7 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API}/api/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      })
+      await apiFetch(`${API}/api/logout`, { method: 'POST' })
     } catch { /* ignore */ }
     setIsAuthenticated(false)
   }

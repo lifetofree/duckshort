@@ -74,7 +74,7 @@ app.use('*', logger())
 app.use('*', cors({
   origin: ['https://duckshort.cc', 'https://duckshort.pages.dev', 'http://localhost:3030', 'http://localhost:8787'],
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-XSRF-TOKEN'],
   credentials: true,
 }))
 
