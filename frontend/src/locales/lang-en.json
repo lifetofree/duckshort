@@ -38,7 +38,8 @@
         "invalidUrl": "Invalid URL format",
         "invalidCustomId": "Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)",
         "networkError": "Network error. Is the backend running?",
-        "failedToShorten": "Error {{status}}: Failed to shorten"
+        "failedToShorten": "Error {{status}}: Failed to shorten",
+        "unauthorized": "Shortening is temporarily unavailable. Please try again in a moment."
       }
     },
     "statsForm": {
