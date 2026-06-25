@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import { CUSTOM_ID_REGEX } from '../lib/constants'
+import { readCookie } from '../lib/cookies'
 import type { TranslationParams } from '../lib/i18n'
 
-const API = import.meta.env.VITE_API_URL ?? ''
+const API = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
 interface ShortenResponse {
   shortUrl?: string
@@ -81,7 +82,17 @@ export function useShortenForm({ t }: UseShortenFormOptions): UseShortenFormResu
             : expiry || undefined
         const res = await fetch(`${API}/api/links`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: (() => {
+            // Echo the XSRF-TOKEN cookie as the X-XSRF-TOKEN header so the
+            // backend's CSRF check passes when an admin is logged in
+            // (credentials: 'include' auto-attaches the admin_token cookie
+            // and triggers the check). Anonymous visitors have neither
+            // cookie, so the header is omitted.
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+            const csrf = readCookie('XSRF-TOKEN')
+            if (csrf) headers['X-XSRF-TOKEN'] = csrf
+            return headers
+          })(),
           credentials: 'include',
           body: JSON.stringify({
             url,
@@ -95,6 +106,14 @@ export function useShortenForm({ t }: UseShortenFormOptions): UseShortenFormResu
           setShortUrl(data.shortUrl ?? null)
           setCustomId('')
           setBurnOnRead(false)
+        } else if (res.status === 401) {
+          // Defense-in-depth: the home form is now public, so this should
+          // never fire in practice. If it ever does (e.g. a regression that
+          // puts the endpoint behind auth again), show a friendly message
+          // instead of the raw server string.
+          setError(t('home.shortenForm.errors.unauthorized'))
+        } else if (res.status === 403 && data.error === 'CSRF token mismatch') {
+          setError(t('home.shortenForm.errors.csrfMismatch'))
         } else {
           setError(data.error ?? t('home.shortenForm.errors.failedToShorten', { status: res.status }))
         }

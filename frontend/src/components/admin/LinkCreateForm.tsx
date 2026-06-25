@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { EXPIRY_OPTIONS, CUSTOM_ID_REGEX } from '../../lib/constants'
 import type { CreateLinkFormData } from './types'
+import { apiFetch } from '../../lib/api-fetch'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 
@@ -70,10 +71,9 @@ export default function LinkCreateForm({ onSuccess }: LinkCreateFormProps) {
       if (formData.og_description.trim()) body.og_description = formData.og_description
       if (formData.og_image.trim()) body.og_image = formData.og_image
 
-      const res = await fetch(`${API}/api/links`, {
+      const res = await apiFetch(`${API}/api/links`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(body)
       })
 

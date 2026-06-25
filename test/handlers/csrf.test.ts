@@ -140,13 +140,40 @@ describe('CSRF protection (1.4)', () => {
     expect([200, 201]).toContain(res.status)
   })
 
-  it('unauthenticated POST /api/links returns 401 (auth before CSRF)', async () => {
+  it('anonymous POST /api/links with only public fields succeeds (no auth required)', async () => {
     const res = await req('/api/links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: 'https://example.com' }),
     })
+    expect(res.status).toBe(200)
+  })
+
+  it('anonymous POST /api/links with admin-only fields returns 401', async () => {
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: 'https://example.com', webhook_url: 'https://hooks.example.com/hook' }),
+    })
     expect(res.status).toBe(401)
+  })
+
+  it('admin-cookie POST /api/links with matching X-XSRF-TOKEN header succeeds (home form path)', async () => {
+    // Regression: when an admin is logged in and visits the home page, the
+    // browser auto-attaches the admin_token cookie to the public shorten
+    // request via credentials: 'include'. The SPA reads the XSRF-TOKEN
+    // cookie and echoes it back as X-XSRF-TOKEN so the CSRF check passes.
+    const { adminToken, csrfToken } = await login()
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'cookie': `admin_token=${adminToken}; XSRF-TOKEN=${csrfToken}`,
+        'X-XSRF-TOKEN': csrfToken,
+      },
+      body: JSON.stringify({ url: 'https://example.com' }),
+    })
+    expect(res.status).toBe(200)
   })
 
   it('POST /api/auth (login) is exempt from CSRF (no session yet)', async () => {

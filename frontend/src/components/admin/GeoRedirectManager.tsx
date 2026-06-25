@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { GeoRedirect } from './types'
+import { apiFetch } from '../../lib/api-fetch'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 
@@ -16,10 +17,9 @@ export default function GeoRedirectManager({ linkId, geoRedirects, onRefresh }: 
   const handleAddGeoRedirect = async () => {
     if (!newCountry.trim() || !newUrl.trim()) return
     try {
-      const res = await fetch(`${API}/api/links/${linkId}/geo-redirects`, {
+      const res = await apiFetch(`${API}/api/links/${linkId}/geo-redirects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ country_code: newCountry.toUpperCase(), destination_url: newUrl })
       })
       if (res.ok) {
@@ -34,9 +34,8 @@ export default function GeoRedirectManager({ linkId, geoRedirects, onRefresh }: 
 
   const handleDeleteGeoRedirect = async (geoId: string) => {
     try {
-      const res = await fetch(`${API}/api/links/geo-redirects/${geoId}`, {
+      const res = await apiFetch(`${API}/api/links/geo-redirects/${geoId}`, {
         method: 'DELETE',
-        credentials: 'include',
       })
       if (res.ok) {
         onRefresh()

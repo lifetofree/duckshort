@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Variant } from './types'
+import { apiFetch } from '../../lib/api-fetch'
 
 const API = import.meta.env.VITE_API_URL ?? ''
 
@@ -16,10 +17,9 @@ export default function VariantManager({ linkId, variants, onRefresh }: VariantM
   const handleAddVariant = async () => {
     if (!newUrl.trim()) return
     try {
-      const res = await fetch(`${API}/api/links/${linkId}/variants`, {
+      const res = await apiFetch(`${API}/api/links/${linkId}/variants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ destination_url: newUrl, weight: parseInt(newWeight) || 1 })
       })
       if (res.ok) {
@@ -34,9 +34,8 @@ export default function VariantManager({ linkId, variants, onRefresh }: VariantM
 
   const handleDeleteVariant = async (variantId: string) => {
     try {
-      const res = await fetch(`${API}/api/links/variants/${variantId}`, {
+      const res = await apiFetch(`${API}/api/links/variants/${variantId}`, {
         method: 'DELETE',
-        credentials: 'include',
       })
       if (res.ok) {
         onRefresh()
