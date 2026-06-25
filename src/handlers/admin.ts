@@ -3,6 +3,15 @@ import type { Env } from '../types'
 import { hashPassword } from '../lib/auth'
 import { generateId } from '../lib/nanoid'
 import { isSafeUrl, isSafeWebhookUrl, purgeRedirectCache } from '../lib/redirectUtils'
+
+// Shape returned by the cursor / first-page SELECT in getLinks. Defined as
+// an indexed type so the map callbacks below can use a precise type instead
+// of `any`.
+type LinkRow = {
+  id: string
+  created_at: string
+  [k: string]: unknown
+}
 import {
   EXTEND_HOURS_MIN,
   EXTEND_HOURS_MAX,
@@ -26,21 +35,21 @@ export async function getLinks(c: Context<{ Bindings: Env }>) {
               webhook_url, utm_source, utm_medium, utm_campaign,
               og_title, og_description, og_image
        FROM links WHERE created_at < ? ORDER BY created_at DESC LIMIT ?`
-    ).bind(cursor, pageSize + 1).all()
+    ).bind(cursor, pageSize + 1).all<LinkRow>()
     : await c.env.DB.prepare(
       `SELECT id, original_url, created_at, expires_at, disabled, tag, burn_on_read, custom_domain, visits,
               CASE WHEN password_hash IS NOT NULL THEN 1 ELSE 0 END as has_password,
               webhook_url, utm_source, utm_medium, utm_campaign,
               og_title, og_description, og_image
        FROM links ORDER BY created_at DESC LIMIT ?`
-    ).bind(pageSize + 1).all()
+    ).bind(pageSize + 1).all<LinkRow>()
 
   const hasNext = links.results.length > pageSize
   const pageRows = hasNext ? links.results.slice(0, pageSize) : links.results
   const nextCursor = hasNext ? pageRows[pageRows.length - 1].created_at as string : null
 
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const linkIds = pageRows.map((l: any) => l.id)
+  const linkIds = pageRows.map((l: LinkRow) => l.id)
   const sparklineByLink: Record<string, Record<string, number>> = {}
 
   // P-02: Only fetch sparklines for the current page's link IDs
@@ -79,7 +88,7 @@ export async function getLinks(c: Context<{ Bindings: Env }>) {
     days.push(d.toISOString().slice(0, 10))
   }
 
-  const result = pageRows.map((link: any) => ({
+  const result = pageRows.map((link: LinkRow) => ({
     ...link,
     sparkline: days.map((day) => sparklineByLink[link.id]?.[day] ?? 0),
   }))

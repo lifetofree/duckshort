@@ -65,7 +65,11 @@ export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
     crypto.subtle.digest('SHA-256', encoder.encode(a)),
     crypto.subtle.digest('SHA-256', encoder.encode(b)),
   ])
-  return (crypto.subtle as any).timingSafeEqual(new Uint8Array(aHash), new Uint8Array(bHash))
+  // SubtleCrypto.timingSafeEqual exists in workerd's Web Crypto API but is
+  // not yet in the standard TS lib types. Cast through unknown to the local
+  // extension interface so the lint rule against `any` is satisfied.
+  const subtle = crypto.subtle as unknown as { timingSafeEqual: (a: ArrayBufferView, b: ArrayBufferView) => boolean }
+  return subtle.timingSafeEqual(new Uint8Array(aHash), new Uint8Array(bHash))
 }
 
 // Generate an HMAC-signed session token: <nonce>.<timestamp>.<hmac>
