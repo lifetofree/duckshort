@@ -8,9 +8,24 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      patch-and-minor:
-        update-types: ["minor", "patch"]
+      vitest-stack:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+          - "@cloudflare/vitest-pool-workers"
+      safe-patches:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "typescript"
+          - "nanoid"
+          - "hono"
+        update-types:
+          - "patch"
     labels:
       - "dependencies"
       - "auto-merge"
@@ -23,9 +38,25 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      patch-and-minor:
-        update-types: ["minor", "patch"]
+      vitest-stack:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+      safe-patches:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "typescript"
+          - "tailwindcss*"
+          - "@tailwindcss/*"
+          - "motion"
+          - "@tanstack/react-query"
+        update-types:
+          - "patch"
     labels:
       - "dependencies"
       - "frontend"
