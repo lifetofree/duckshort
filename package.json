@@ -26,6 +26,6 @@
     "fast-check": "^3.23.2",
     "typescript": "^6.0.2",
     "vitest": "^2.0.0",
-    "wrangler": "^4.83.0"
+    "wrangler": "^4.105.0"
   }
 }
