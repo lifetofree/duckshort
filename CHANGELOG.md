@@ -2,6 +2,16 @@
 
 All notable changes to the DuckShort project will be documented in this file.
 
+## [1.9.2] - 2026-06-26
+
+### Changed
+- **Frontend Dependencies**: Upgraded frontend package dependencies including `@tailwindcss/vite`, `@tanstack/react-query`, `motion`, `@typescript-eslint/eslint-plugin`, etc. (PR #11).
+
+### Fixed
+- **Typecheck & ESLint errors**: Resolved compilation errors caused by the mismatch of `ExecutionContext` using a custom `MiniExecutionContext` interface.
+- **Frontend test configuration**: Resolved 23 failing tests in the home page test suite by wrapping `<HomePage />` in a `QueryClientProvider` with a fresh `QueryClient` instance per test.
+- **Frontend lint warning**: Replaced explicit `any` with `Record<string, unknown>` for the POST body in `LinkCreateForm.tsx`.
+
 ## [1.9.1] - 2026-06-26
 
 ### Fixed
