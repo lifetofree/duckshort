@@ -75,8 +75,12 @@ export async function tryReadRedirectCache(env: { BASE_URL?: string }, id: strin
 // path in dispatchRedirect, just without the DB link-row lookup. We extract
 // the request metadata (country/referer/UA) at the call site so this helper
 // can be reused by /password/:id verify and the custom-domain middleware.
+interface MiniExecutionContext {
+  waitUntil(promise: Promise<unknown>): void
+}
+
 export function recordAnalyticsFromCacheHit(
-  ctx: any,
+  ctx: MiniExecutionContext,
   db: D1Database,
   linkId: string,
   cfIpcountry: string | undefined,
@@ -91,7 +95,7 @@ export function recordAnalyticsFromCacheHit(
 }
 
 function writeCache(
-  ctx: any,
+  ctx: MiniExecutionContext,
   env: { BASE_URL?: string },
   id: string,
   destination: string,
@@ -232,7 +236,7 @@ export async function resolveDestination(
 }
 
 export function recordAnalytics(
-  ctx: any,
+  ctx: MiniExecutionContext,
   db: D1Database,
   linkId: string,
   country: string,
@@ -345,7 +349,7 @@ export function isSafeWebhookUrl(url: string): boolean {
 // domain moves use the right cache key. Defaults to BASE_URL (or
 // `https://duckshort.cc`) so callers in tests don't need to thread it.
 export async function purgeRedirectCache(
-  ctx: any,
+  ctx: MiniExecutionContext,
   id: string,
   baseUrl: string = 'https://duckshort.cc'
 ): Promise<void> {
