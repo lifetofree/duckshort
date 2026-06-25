@@ -21,6 +21,7 @@ import {
   MAX_UTM_LENGTH,
   MAX_OG_TITLE_LENGTH,
   MAX_OG_DESCRIPTION_LENGTH,
+  MAX_PASSWORD_LENGTH,
 } from '../lib/constants'
 
 export async function getLinks(c: Context<{ Bindings: Env }>) {
@@ -146,6 +147,17 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
     }
   }
 
+  if (body.expiresIn != null) {
+    const secs = Number(body.expiresIn)
+    if (!Number.isFinite(secs) || !Number.isInteger(secs) || secs < 1 || secs > EXTEND_HOURS_MAX * 3600) {
+      return c.json({ error: `expiresIn must be an integer between 1 and ${EXTEND_HOURS_MAX * 3600} seconds` }, 400)
+    }
+  }
+
+  if (body.password && body.password.length > MAX_PASSWORD_LENGTH) {
+    return c.json({ error: `password exceeds ${MAX_PASSWORD_LENGTH} characters` }, 400)
+  }
+
   let id = body.customId?.trim() || generateId()
 
   if (body.customId) {
@@ -160,34 +172,53 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
     if (existing) return c.json({ error: 'Custom alias already taken' }, 409)
   }
 
+  if (body.variants && body.variants.length > 0) {
+    for (const v of body.variants) {
+      if (!isSafeUrl(v.destination_url)) {
+        return c.json({ error: 'Only http/https URLs are allowed' }, 400)
+      }
+    }
+  }
+
   const createdAt = new Date().toISOString()
   const expiresAt = body.expiresIn
     ? new Date(Date.now() + body.expiresIn * 1000).toISOString()
     : null
   const passwordHash = body.password ? await hashPassword(body.password) : null
 
-  await c.env.DB.prepare(
-    `INSERT INTO links
-      (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read, og_title, og_description, og_image)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  )
-    .bind(
-      id,
-      body.url,
-      createdAt,
-      expiresAt,
-      passwordHash,
-      body.tag ?? null,
-      body.utm_source ?? null,
-      body.utm_medium ?? null,
-      body.utm_campaign ?? null,
-      body.webhook_url ?? null,
-      body.burn_on_read ? 1 : 0,
-      body.og_title ?? null,
-      body.og_description ?? null,
-      body.og_image ?? null,
-    )
-    .run()
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO links
+          (id, original_url, created_at, expires_at, password_hash, tag, utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read, og_title, og_description, og_image)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          id,
+          body.url,
+          createdAt,
+          expiresAt,
+          passwordHash,
+          body.tag ?? null,
+          body.utm_source ?? null,
+          body.utm_medium ?? null,
+          body.utm_campaign ?? null,
+          body.webhook_url ?? null,
+          body.burn_on_read ? 1 : 0,
+          body.og_title ?? null,
+          body.og_description ?? null,
+          body.og_image ?? null,
+        )
+        .run()
+      break
+    } catch (err) {
+      if (attempt === 0 && !body.customId && err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
+        id = generateId()
+        continue
+      }
+      throw err
+    }
+  }
 
   if (body.variants && body.variants.length > 0) {
     const stmts = body.variants.map((v) =>
