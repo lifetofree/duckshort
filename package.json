@@ -12,11 +12,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "hono": "^4.0.0",
-    "nanoid": "^5.0.0"
+    "hono": "^4.12.27",
+    "nanoid": "^5.1.16"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "@cloudflare/vitest-pool-workers": "^0.16.20",
     "@eslint/js": "^9.39.4",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
@@ -24,7 +24,7 @@
     "@vitest/coverage-v8": "^2.1.9",
     "eslint": "^9.39.4",
     "fast-check": "^3.23.2",
-    "typescript": "^6.0.2",
+    "typescript": "^6.0.3",
     "vitest": "^2.0.0",
     "wrangler": "^4.83.0"
   }
