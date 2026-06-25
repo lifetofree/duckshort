@@ -54,7 +54,7 @@ export default function LinkCreateForm({ onSuccess }: LinkCreateFormProps) {
         ? (parseInt(formData.customExpiry, 10) * 3600 || undefined)
         : (formData.expiresIn || undefined)
 
-      const body: any = {
+      const body: Record<string, unknown> = {
         url: formData.url,
         customId: formData.customId.trim() || undefined,
         expiresIn,
