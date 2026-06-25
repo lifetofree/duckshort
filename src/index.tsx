@@ -133,7 +133,7 @@ const linksAuthGuard = async (c: Context<{ Bindings: Env }>, next: Next) => {
   }
 
   const cookieHeader = c.req.header('cookie') ?? ''
-  if (cookieHeader.includes('admin_token=')) {
+  if (cookieHeader.split(';').some(p => p.trim().startsWith('admin_token='))) {
     const headerValue = c.req.header('X-XSRF-TOKEN')
     const match = await csrfTokensMatch(cookieHeader, headerValue)
     if (!match) {
@@ -172,7 +172,7 @@ app.use('/api/*', apiRateLimit, async (c, next) => {
   if (auth) return auth
   if (STATE_CHANGING_METHODS.has(c.req.method)) {
     const cookieHeader = c.req.header('cookie') ?? ''
-    if (cookieHeader.includes('admin_token=')) {
+    if (cookieHeader.split(';').some(p => p.trim().startsWith('admin_token='))) {
       const headerValue = c.req.header('X-XSRF-TOKEN')
       const match = await csrfTokensMatch(cookieHeader, headerValue)
       if (!match) {

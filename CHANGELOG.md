@@ -2,6 +2,19 @@
 
 All notable changes to the DuckShort project will be documented in this file.
 
+## [1.9.1] - 2026-06-26
+
+### Fixed
+- **ESLint CI**: Downgraded `@eslint/js` from v10 to v9 to resolve peer dependency conflict with `eslint@^9`; added `.wrangler/**` to ESLint ignores to stop linting Wrangler-generated bundles; replaced explicit literal type annotations with `as const` in `constants.ts`
+- **Admin CSRF — CORS preflight**: Added `X-XSRF-TOKEN` to CORS `allowHeaders`; cross-origin SPA preflight was stripping the header before it reached the CSRF check, causing all admin mutations to 403
+- **Admin CSRF — missing header**: Created `frontend/src/lib/api-fetch.ts` utility that reads the `XSRF-TOKEN` cookie and injects `X-XSRF-TOKEN` on every credentialed request; updated `Admin.tsx`, `LinkCreateForm`, `GeoRedirectManager`, and `VariantManager` to use it — all admin mutations (toggle, delete, extend, bulk-delete, create, variant CRUD, geo-redirect CRUD, logout) were returning 403
+- **Variant URL injection**: `createLink` now validates each variant `destination_url` via `isSafeUrl()` before insert; previously `javascript:` and `data:` URLs could be stored via the batch-variant path in `createLink` while the standalone `createVariant` endpoint did validate
+- **`expiresIn` overflow → 500**: Added bounds check (`1..31,536,000` seconds) in `createLink` before `Date` arithmetic; an unbounded integer overflowed `new Date()` and threw `Invalid time value` on the public endpoint
+- **Password length DoS**: Reject passwords longer than `MAX_PASSWORD_LENGTH` (256 chars) before running 100k PBKDF2 iterations; prevented CPU budget exhaustion via the now-public shorten endpoint
+- **ID collision → 500**: Retry `generateId()` once on UNIQUE constraint failure in `createLink`; previously a random slug collision produced an unhandled D1 error
+- **Counter self-heal zeroing**: Skip self-heal in `selfHealTotalVisitsCounter` when `analytics = 0` and `counter > 0`; the drift formula (`|analytics - counter| / max(analytics, 1)`) always exceeded the 5% threshold when analytics was 0, causing the cron to zero `total_visits` on fresh deploys or transient empty-table scans
+- **Cookie substring false 403**: Replaced `cookieHeader.includes('admin_token=')` with proper name-split parsing in both `linksAuthGuard` and `/api/*` middleware; a cookie whose value contained the substring `admin_token=` triggered false CSRF blocks for anonymous users
+
 ## [1.9.0] - 2026-04-21
 
 ### Added

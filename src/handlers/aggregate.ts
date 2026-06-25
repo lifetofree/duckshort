@@ -51,6 +51,12 @@ export async function selfHealTotalVisitsCounter(env: Env): Promise<{ healed: bo
   const counterRow = await env.DB.prepare('SELECT value FROM counters WHERE key = ?').bind('total_visits').first<{ value: number }>()
   const analytics = analyticsRow?.count ?? 0
   const counter = counterRow?.value ?? 0
+  // Don't heal when analytics is 0 but counter is positive: an empty analytics
+  // table can result from a fresh deploy or a transient query failure, and
+  // zeroing total_visits is a destructive, hard-to-recover action.
+  if (analytics === 0 && counter > 0) {
+    return { healed: false, counter, analytics }
+  }
   // Allow 5% drift to avoid write-amplification on noisy counters; heal
   // when the gap is clearly wrong.
   const drift = Math.abs(analytics - counter) / Math.max(analytics, 1)
