@@ -39,7 +39,8 @@
         "invalidCustomId": "Custom ID must be 3-50 characters (alphanumeric, underscore, hyphen)",
         "networkError": "Network error. Is the backend running?",
         "failedToShorten": "Error {{status}}: Failed to shorten",
-        "unauthorized": "Shortening is temporarily unavailable. Please try again in a moment."
+        "unauthorized": "Shortening is temporarily unavailable. Please try again in a moment.",
+        "csrfMismatch": "Session expired. Please refresh the page and try again."
       }
     },
     "statsForm": {

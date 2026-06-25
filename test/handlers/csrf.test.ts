@@ -158,6 +158,24 @@ describe('CSRF protection (1.4)', () => {
     expect(res.status).toBe(401)
   })
 
+  it('admin-cookie POST /api/links with matching X-XSRF-TOKEN header succeeds (home form path)', async () => {
+    // Regression: when an admin is logged in and visits the home page, the
+    // browser auto-attaches the admin_token cookie to the public shorten
+    // request via credentials: 'include'. The SPA reads the XSRF-TOKEN
+    // cookie and echoes it back as X-XSRF-TOKEN so the CSRF check passes.
+    const { adminToken, csrfToken } = await login()
+    const res = await req('/api/links', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'cookie': `admin_token=${adminToken}; XSRF-TOKEN=${csrfToken}`,
+        'X-XSRF-TOKEN': csrfToken,
+      },
+      body: JSON.stringify({ url: 'https://example.com' }),
+    })
+    expect(res.status).toBe(200)
+  })
+
   it('POST /api/auth (login) is exempt from CSRF (no session yet)', async () => {
     const res = await req('/api/auth', {
       method: 'POST',
