@@ -2,6 +2,20 @@
 
 All notable changes to the DuckShort project will be documented in this file.
 
+## [1.9.3] - 2026-06-26
+
+### Security
+- **Safe npm audit fix** — applied `npm audit fix` (non-breaking) and shipped to production:
+  - `hono` resolved to `4.12.27` (within `^4.0.0`); patches 7 Hono advisories (JSX HTML injection, CORS credentials reflection, bodyLimit bypass, IPv6 deny bypass, etc.).
+  - `postcss` resolved to `8.5.15` (transitive via vite); patches the `<style>` XSS advisory.
+- **Vitest 3 -> 4 / vitest-pool-workers 0.16 upgrade** — merged on develop via PR #18 (squash commit `976b914`); brings the audit count to **0**. Package bumps: `@cloudflare/vitest-pool-workers` `^0.5.0` -> `^0.16.20`, `vitest` `^2.0.0` -> `^4.1.9`, `@vitest/coverage-istanbul` and `@vitest/coverage-v8` `^2.1.9` -> `^4.1.9`. Test-infra changes: `vitest.config.ts` -> `vitest.config.mts` (defineWorkersConfig removed in 0.16), and `test/helpers/schema.ts` `clearAll()` extended to also wipe the rate limiter Durable Object storage (vitest-pool-workers 0.16 + miniflare 4 deliberately persist DO state across `it` blocks within a test file). **Not yet deployed to production** — production is still running the previous v1.9.2 build (Worker `085f8931-2b9f-4eb7-a0f5-e5140d4317e7`, Pages `eb82fb82.duckshort.pages.dev`).
+
+### Fixed
+- **Footer version mismatch** — `frontend/package.json` `version` was still pinned at the project bootstrap value `1.0.0` even though the project was at v1.9.2, so the home page footer advertised `V1.0.0`. Bumped to `1.9.2` so the footer (`V{{version}}` template, fed by Vite's `__APP_VERSION__` define) renders `V1.9.2`.
+
+### Operations
+- Manual production deploy via `wrangler deploy` + `wrangler pages deploy` (the `deploy-all.yml` GitHub Actions workflow referenced in `AGENTS.md` no longer exists in `.github/workflows/` — it was removed in commit `2c8bde7` "Switch to dev-only environment, disable auto-deploy CI").
+
 ## [1.9.2] - 2026-06-26
 
 ### Changed
