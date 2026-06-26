@@ -52,18 +52,22 @@ Resolved items are archived in `HISTORY.md`.
 
 ### vitest 3 -> 4 / vitest-pool-workers upgrade (security)
 - **Discovered**: 2026-06-26 npm audit.
-- **Status**: Not started. Tracked here because it requires coordinated manual changes (semver-major, Dependabot ignores majors).
-- **Why**: Eliminates the remaining 12 audit vulnerabilities (4 critical, 4 high, 4 moderate) all transitive through `@cloudflare/vitest-pool-workers@^0.5.0` and `wrangler@^4.83.0` (devalue prototype pollution, undici smuggling/Set-Cookie injection, ws memory disclosure, esbuild dev-server leak, vite-node).
-- **Required package.json bumps**:
+- **Status**: **DONE — merged via squash on 2026-06-26 as commit `976b914` (PR #18, `deps/vitest-4-upgrade` -> `develop`). `npm audit` reports 0 vulnerabilities, 264/264 backend tests green.**
+- **Why**: Eliminated 12 audit vulnerabilities (4 critical, 4 high, 4 moderate) all transitive through `@cloudflare/vitest-pool-workers@^0.5.0` and `wrangler@^4.83.0` (devalue prototype pollution, undici smuggling/Set-Cookie injection, ws memory disclosure, esbuild dev-server leak, vite-node).
+- **Package.json bumps applied**:
   - `@cloudflare/vitest-pool-workers` `^0.5.0` -> `^0.16.20` (major)
   - `@vitest/coverage-istanbul` `^2.1.9` -> `^4.1.9` (major)
   - `@vitest/coverage-v8` `^2.1.9` -> `^4.1.9` (major)
-  - `vitest` `^2.0.0` -> `^4.0.0` (major, transitive but pinned range)
-- **Known touch points**:
-  - `vitest.config.ts`: `defineWorkersConfig` API may have changed; `poolOptions.workers.miniflare.bindings` shape likely updated (vitest-pool-workers 0.16 uses miniflare 4, binding names vs IDs).
-  - `wrangler.toml` / `.dev.vars`: confirm compat with the bundled wrangler version (test pool reuses project wrangler).
-  - `worker-configuration.d.ts`: regenerate via `wrangler types` after bump.
-  - `test/**`: 264 backend tests should still pass, but coverage provider API (`@vitest/coverage-istanbul`) had breaking changes between v2 and v4 — re-run `npm run test:coverage` and verify the `thresholds` block is still honoured.
-  - `.github/dependabot.yml`: remove `vitest-stack` group override once we're on the new major, or split it into `vitest-3-stack` / `vitest-4-stack` during the transition.
-- **Approach**: Create a feature branch `deps/vitest-4-upgrade`, run `npm install @cloudflare/vitest-pool-workers@^0.16.20 @vitest/coverage-istanbul@^4.1.9 @vitest/coverage-v8@^4.1.9 vitest@^4.0.0`, fix any breakage in `vitest.config.ts` and tests, run `npm run typecheck && npm run lint && npm test && npm run test:coverage`, then open a PR with the audit output before/after attached.
-- **Acceptance**: `npm audit` reports 0 vulnerabilities; full test/lint/typecheck green; coverage thresholds still enforced.
+  - `vitest` `^2.0.0` -> `^4.1.9` (major, transitive but pinned range)
+- **Test-infra changes shipped**:
+  - `vitest.config.ts` -> `vitest.config.mts` rewritten to use `defineConfig` from `vitest/config` + `cloudflareTest()` Vite plugin (the old `defineWorkersConfig` / `poolOptions.workers` shape is gone in 0.16). Renaming to `.mts` avoids the rolldown bundler trying to `require()` the now-ESM-only `@cloudflare/vitest-pool-workers` package.
+  - `test/helpers/schema.ts`: extended `clearAll()` to also wipe the rate limiter Durable Object storage for the well-known test IP (`'unknown'`) under both buckets. Required because vitest-pool-workers 0.16 + miniflare 4 deliberately **persist** DO state across `it` blocks within a test file (the old 0.5.x storage-stack reset no longer applies to DOs). Without this, sibling tests leak rate-limit counters into each other and 429 mid-suite.
+  - `worker-configuration.d.ts`: regenerated via `wrangler types`.
+- **Verification on the merged commit**:
+  - `npm audit` -> 0 vulnerabilities.
+  - `npm test` -> 264/264 green.
+  - `npm run typecheck` -> 0 errors.
+  - `npm run lint` -> 0 errors, 4 warnings (baseline).
+  - `npm run test:coverage` -> 89.17% stmts / 80.23% branches / 95.87% funcs / 91.33% lines, thresholds (60/60/50/60) all pass.
+- **Production note**: The upgrade has NOT yet been deployed to production. Production (`duckshort.cc` Worker `085f8931-...`, Pages `eb82fb82.duckshort.pages.dev`) is still running the previous v1.9.2 deploy from the safe `npm audit fix`. Deploying the upgrade requires a manual `wrangler deploy` + `wrangler pages deploy frontend/dist --project-name duckshort` after build.
+- **Follow-up**: `.github/dependabot.yml` `vitest-stack` group override can stay; it will continue to batch weekly PRs for vitest / @vitest / @cloudflare/vitest-pool-workers. No config change needed.

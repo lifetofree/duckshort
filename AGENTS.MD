@@ -303,8 +303,7 @@ DuckShort/
 ├── AGENTS.MD                         # This file
 ├── BACKLOGS.md                       # Active feature gaps and improvements
 ├── CHANGELOG.md                      # Version history
-├── HISTORY.md                        # Archived resolved tasks
-└── ISSUETOFIX.md                     # Open bugs (currently empty)
+└── HISTORY.md                        # Archived resolved tasks
 ```
 
 ## Database Schema

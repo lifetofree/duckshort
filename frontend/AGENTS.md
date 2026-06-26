@@ -279,8 +279,7 @@ DuckShort/
 ├── vitest.config.ts                  # @cloudflare/vitest-pool-workers config
 ├── wrangler.toml                     # Worker config: name, D1, vars (BASE_URL), observability
 ├── AGENTS.MD                         # This file
-├── BACKLOGS.md                       # Feature gaps
-└── ISSUETOFIX.md                     # Resolved bugs and security fixes
+└── BACKLOGS.md                       # Feature gaps
 ```
 
 ## Database Schema

@@ -1,12 +1,9 @@
 export interface Env {
   DB: D1Database
   RATE_LIMITER: DurableObjectNamespace
+  ASSETS: Fetcher
   ADMIN_SECRET: string
   BASE_URL: string
-  // B-13: Pages project URL used by the Worker to proxy the SPA. Defaults to
-  // `https://duckshort.pages.dev` so existing deployments keep working without
-  // any wrangler.toml change.
-  PAGES_URL?: string
   // 1.2: dedicated HMAC key for session cookies. Rotate independently of
   // ADMIN_SECRET (the Bearer path). Falls back to ADMIN_SECRET when unset
   // (backward compat for local dev and pre-1.2 deployments).

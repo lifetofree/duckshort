@@ -9,12 +9,7 @@ export function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '')
 }
 
-/** Cloudflare Pages origin used by the SPA proxy in `src/index.tsx`. */
-export function pagesOrigin(env: Env): string {
-  return stripTrailingSlash(env.PAGES_URL ?? 'https://duckshort.pages.dev')
-}
-
-/** Base URL the SPA uses to build short links (mirrors `pagesOrigin` for now). */
+/** Base URL the SPA uses to build short links. */
 export function baseUrl(env: Env): string {
   return stripTrailingSlash(env.BASE_URL ?? 'https://duckshort.cc')
 }

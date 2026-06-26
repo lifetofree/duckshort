@@ -9,4 +9,4 @@
 
 **As of:** 2026-05-15 | **Stage:** Production v1
 
-See also: `ISSUESTOFIX.md` (44 open issues) · `BACKLOGS.md` (roadmap gaps)
+See also: `BACKLOGS.md` (roadmap gaps) · `HISTORY.md` (archived resolved tasks)

@@ -3,6 +3,11 @@ main = "src/index.tsx"
 compatibility_date = "2025-04-15"
 compatibility_flags = ["nodejs_compat"]
 
+[assets]
+directory = "./frontend/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
 [dev]
 port = 8787
 local_protocol = "http"
@@ -28,12 +33,6 @@ crons = ["0 * * * *"]
 # under Workers > Settings > Variables. Do NOT hardcode the production domain here.
 BASE_URL = "https://duckshort.cc"
 
-# B-13: Pages project URL the Worker proxies /, /admin, and the catch-all to.
-# Override per-environment in the Cloudflare dashboard (e.g. a staging Pages
-# preview URL) without code changes. Defaults to the production Pages project
-# if the var is unset, so existing deployments keep working.
-PAGES_URL = "https://duckshort.pages.dev"
-
 # ADMIN_SECRET is stored as an encrypted secret — do NOT add it here.
 # Run once to set it: wrangler secret put ADMIN_SECRET
 
@@ -52,7 +51,6 @@ name = "duckshort-staging"
 
 [env.staging.vars]
 BASE_URL = "https://staging.duckshort.cc"
-PAGES_URL = "https://staging.duckshort.pages.dev"
 
 [[env.staging.d1_databases]]
 binding = "DB"

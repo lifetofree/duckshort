@@ -6,7 +6,7 @@
 
 ## Linked Issues
 
-<!-- `Closes #123`, `Refs ISSUESTOFIX.md B-12`, etc. -->
+<!-- `Closes #123`, `Refs #456`, etc. -->
 
 ## Test Plan
 
@@ -38,5 +38,4 @@ How do we undo this PR if it ships and breaks production?
 
 - [ ] Conventional commit prefix (`feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`)
 - [ ] No secrets, API keys, or `.dev.vars` content in the diff
-- [ ] Updated `ISSUESTOFIX.md` if this closes a known issue
 - [ ] Updated `CHANGELOG.md` for user-facing changes
