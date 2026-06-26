@@ -1,7 +1,7 @@
 # System Design
 
 **DuckShort** — URL shortener on Cloudflare Workers + D1 + Pages  
-**Stage:** Production v1 — post-3rd audit, all 64 ISSUESTOFIX items closed  
+**Stage:** Production v1 — post-3rd audit, all audit items closed  
 **As of:** 2026-06-18
 
 > Refreshed in Wave 1 of `docs/PLAN_IMPROVEMENT.md` (item 8.1). Reflects the
@@ -397,7 +397,7 @@ Client (Admin SPA)                                Worker
 
 ## Audit Cadence
 
-The repo runs a 3-pass audit cycle on the `ISSUESTOFIX.md` backlog:
+The repo runs a 3-pass audit cycle on a rolling backlog:
 
 1. **Open issues:** items discovered from a `git log` review, user reports,
    or runtime errors. Tracked with severity (HIGH / MEDIUM / LOW).
@@ -414,7 +414,7 @@ As of 2026-06-18: **0 open, 64 resolved** across three audit cycles.
 ## Post-Audit State (replaces "Known Gaps")
 
 All items previously listed in the "Known Gaps & Planned Work" table are
-resolved. See `ISSUESTOFIX.md` for the audit trail and
+resolved. See `HISTORY.md` for the audit trail and
 `docs/PLAN_IMPROVEMENT.md` for the next wave.
 
 | Originally flagged | Resolution | Where it landed |
@@ -436,6 +436,6 @@ resolved. See `ISSUESTOFIX.md` for the audit trail and
 - `docs/spec/DATABASE.md` — full schema reference
 - `docs/spec/API.md` — endpoint reference
 - `docs/spec/TECH_STACK.md` — tech stack and rationale
-- `ISSUESTOFIX.md` — resolved issue history (3 cycles, 64 items)
+- `HISTORY.md` — resolved issue history (3 cycles, 64 items)
 - `docs/PLAN_IMPROVEMENT.md` — next wave of improvements (Wave 1 / 2 / 3)
 - `scripts/db-clone.sh` — copy production D1 → local for safe testing

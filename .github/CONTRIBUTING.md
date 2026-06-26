@@ -62,7 +62,7 @@ PRs are merged via squash. Use the PR template (`.github/PULL_REQUEST_TEMPLATE.m
 Reviewers expect:
 
 1. A short summary of the *why* (not the *what* — the diff shows that).
-2. Linked issues (e.g. `Closes #123`, `Refs ISSUESTOFIX.md B-12`).
+2. Linked issues (e.g. `Closes #123`, `Refs #456`).
 3. A test plan that lists the test names you ran locally.
 4. A rollback plan (which file to revert, or which flag to flip).
 5. Screenshots for any UI change (the SPA is dark-themed, so use a dark-mode screenshot).
@@ -77,4 +77,4 @@ Reviewers expect:
 
 ## Filing Bugs
 
-Use the `ISSUESTOFIX.md` format (a `###` header with an ID, severity, and one-paragraph description). The 3rd audit cycle in this repo is a good template.
+Open an issue on GitHub with a clear summary, reproduction steps, expected vs. actual behaviour, and severity (HIGH / MEDIUM / LOW). Reference the relevant code path in the title.

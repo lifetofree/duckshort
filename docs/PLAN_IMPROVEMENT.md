@@ -1,6 +1,6 @@
 # DuckShort — Improvement Plan
 
-Generated 2026-06-18 by a full-codebase review of `develop` (post-3rd audit, all 64 audit items closed). The plan captures the **next wave** of improvements beyond the ISSUESTOFIX audit backlog. Each item lists the problem, the proposed change, effort, and risk.
+Generated 2026-06-18 by a full-codebase review of `develop` (post-3rd audit, all 64 audit items closed). The plan captures the **next wave** of improvements beyond the audit backlog. Each item lists the problem, the proposed change, effort, and risk.
 
 ## Executive Summary
 
@@ -462,7 +462,7 @@ All 14 Wave 2 items shipped. Tests: 255/255 passing, typecheck clean, coverage 8
 
 ## 12. Summary
 
-The codebase is in a strong, shippable state. The ISSUESTOFIX audit closed 64 items across three passes; performance, security, and code quality are all within best-practice envelopes. The plan above is the next wave of investment to take the project from "production-ready" to "long-lived" — better observability, tighter test coverage, slightly better security posture, and lower operational risk.
+The codebase is in a strong, shippable state. The recent audit cycle closed 64 items across three passes; performance, security, and code quality are all within best-practice envelopes. The plan above is the next wave of investment to take the project from "production-ready" to "long-lived" — better observability, tighter test coverage, slightly better security posture, and lower operational risk.
 
 The single highest-leverage item is **Wave 2.1 — activate the redirect cache** (drop D1 read traffic by an order of magnitude on hot links) and **Wave 2.1 — add CSP** (closes the last big XSS gap).
 
