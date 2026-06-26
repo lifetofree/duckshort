@@ -1,4 +1,4 @@
-import { env } from 'cloudflare:test'
+import { env, runInDurableObject } from 'cloudflare:test'
 
 export async function applySchema() {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS links (id TEXT PRIMARY KEY, original_url TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT, disabled INTEGER DEFAULT 0, password_hash TEXT, tag TEXT, utm_source TEXT, utm_medium TEXT, utm_campaign TEXT, webhook_url TEXT, burn_on_read INTEGER DEFAULT 0, og_title TEXT, og_description TEXT, og_image TEXT, custom_domain TEXT, visits INTEGER NOT NULL DEFAULT 0)`)
@@ -10,6 +10,14 @@ export async function applySchema() {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS link_stats_daily (link_id TEXT NOT NULL, day TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (link_id, day))`)
 }
 
+// 2026-06-26 (vitest 4 upgrade): vitest-pool-workers 0.16 persists Durable
+// Object state across `it` blocks within the same test file. The previous
+// 0.5.x reset DO storage per test via the storage stack, but that no longer
+// happens. Without an explicit reset the rate limiter counter leaks across
+// tests in the same file, so a test that expects `X-RateLimit-Remaining:
+// 199` after one redirect sees `198` (or worse, 429) once a sibling test has
+// already incremented the same bucket. clearAll() now also wipes the rate
+// limiter's per-(bucket,ip) storage so every test starts from zero.
 export async function clearAll() {
   await env.DB.prepare('DELETE FROM geo_redirects').run()
   await env.DB.prepare('DELETE FROM link_variants').run()
@@ -17,6 +25,25 @@ export async function clearAll() {
   await env.DB.prepare('DELETE FROM link_stats_daily').run()
   await env.DB.prepare('DELETE FROM links').run()
   await env.DB.prepare('DELETE FROM counters').run()
+  await resetRateLimiter()
+}
+
+export async function resetRateLimiter() {
+  // Tests don't set CF-Connecting-IP / X-Forwarded-For, so the middleware
+  // always falls through to the `'unknown'` key (see src/middleware/rateLimit.ts).
+  // Reset both buckets under that key. If a test ever sets CF-Connecting-IP
+  // to something else, extend this list rather than parsing the request.
+  const ips = ['unknown'] as const
+  const buckets = ['api', 'redirect'] as const
+  for (const bucket of buckets) {
+    for (const ip of ips) {
+      const id = env.RATE_LIMITER.idFromName(`${bucket}:${ip}`)
+      const stub = env.RATE_LIMITER.get(id)
+      await runInDurableObject(stub, async (_instance, state) => {
+        await state.storage.deleteAll()
+      })
+    }
+  }
 }
 
 export async function seedLink(

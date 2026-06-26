@@ -4,7 +4,7 @@ Live handoff notes for the next reviewer / session. Captures state that's not
 self-evident from the commit log: open PR review status, in-flight blockers,
 local-environment quirks, and where to resume.
 
-Last updated: 2026-06-26 (npm audit fix applied; breaking-change upgrade tracked in BACKLOGS)
+Last updated: 2026-06-26 (npm audit fix applied; vitest 4 upgrade on `deps/vitest-4-upgrade`, PR pending)
 
 ---
 
@@ -32,16 +32,19 @@ Last updated: 2026-06-26 (npm audit fix applied; breaking-change upgrade tracked
 
 Ran `npm audit` against the current dependency tree. Initial state: **15 vulnerabilities (4 moderate, 7 high, 4 critical)**.
 
-`npm audit fix` (non-breaking) applied and verified:
+`npm audit fix` (non-breaking) applied on develop and verified:
 
 - `hono` resolved to `4.12.27` (within `^4.0.0`), patches 7 Hono advisories (JSX HTML injection, CORS credentials reflection, bodyLimit bypass, IPv6 deny bypass, etc.).
 - `postcss` resolved to `8.5.15` (transitive via vite), patches the `<style>` XSS advisory.
 - Post-fix verification: `npm test` 264/264 green, `npm run typecheck` clean, `npm run lint` 0 errors / 4 warnings.
 
-Remaining **12 vulnerabilities (4 moderate, 4 high, 4 critical)** are all transitive through `@cloudflare/vitest-pool-workers@^0.5.0` and `wrangler@^4.83.0`. The only clean resolution is `npm audit fix --force`, which would bump:
+The remaining **12 vulnerabilities** (transitive through `@cloudflare/vitest-pool-workers@^0.5.0` and `wrangler@^4.83.0`) were resolved on branch **`deps/vitest-4-upgrade`** via the vitest 3 -> 4 + vitest-pool-workers 0.5 -> 0.16 breaking-change upgrade (see BACKLOGS → Dependencies). After the upgrade:
 
-- `@cloudflare/vitest-pool-workers` 0.5.x -> 0.16.20 (semver-major, pulls in vitest 4 + miniflare that patches undici/ws/devalue/esbuild)
-- `@vitest/coverage-istanbul` 2.1.9 -> 4.1.9 (semver-major)
-- `@vitest/coverage-v8` 2.1.9 -> 4.1.9 (semver-major)
+- `npm audit` -> **0 vulnerabilities**.
+- 264/264 backend tests green.
+- 89.17% statements / 80.23% branches / 95.87% funcs / 91.33% lines (coverage thresholds 60/60/50/60 all pass).
 
-Tracked in `BACKLOGS.md` → "Dependencies: vitest 3 -> 4 / vitest-pool-workers upgrade". Dependabot is currently configured to ignore semver-major bumps and to group the vitest stack, so this needs a manual PR.
+### Test infra changes on `deps/vitest-4-upgrade`
+
+- `vitest.config.ts` was renamed to `vitest.config.mts` and rewritten to use `defineConfig` from `vitest/config` + the `cloudflareTest()` Vite plugin. The old `defineWorkersConfig` / `poolOptions.workers` helper is gone in 0.16. The `.mts` rename avoids the rolldown config bundler trying to `require()` the now-ESM-only package.
+- `test/helpers/schema.ts` `clearAll()` now also resets the rate limiter Durable Object storage for the `'unknown'` IP under both `api` and `redirect` buckets. vitest-pool-workers 0.16 deliberately persists DO state across `it` blocks within a file (the old per-test storage-stack reset no longer applies to DOs), so tests that share an IP key now leak rate-limit counters into each other unless explicitly cleared. PR #TBD will include this fix.
