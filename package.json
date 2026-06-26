@@ -16,16 +16,16 @@
     "nanoid": "^5.0.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "@cloudflare/vitest-pool-workers": "^0.16.20",
     "@eslint/js": "^9.39.4",
     "@typescript-eslint/eslint-plugin": "^8.61.1",
     "@typescript-eslint/parser": "^8.61.1",
-    "@vitest/coverage-istanbul": "^2.1.9",
-    "@vitest/coverage-v8": "^2.1.9",
+    "@vitest/coverage-istanbul": "^4.1.9",
+    "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "fast-check": "^3.23.2",
     "typescript": "^6.0.2",
-    "vitest": "^2.0.0",
+    "vitest": "^4.1.9",
     "wrangler": "^4.83.0"
   }
 }
