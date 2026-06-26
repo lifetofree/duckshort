@@ -17,7 +17,6 @@ import { health } from './handlers/health'
 import { rateLimit, type RateLimitBucket } from './middleware/rateLimit'
 import { resolveCustomDomain } from './middleware/customDomain'
 import { requireAuth, requireAuthFromContext, csrfTokensMatch } from './lib/auth'
-import { pagesOrigin } from './lib/env'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -206,28 +205,9 @@ app.get('/api/links/:id/geo-redirects', getGeoRedirects)
 app.post('/api/links/:id/geo-redirects', createGeoRedirect)
 app.delete('/api/links/geo-redirects/:geoId', deleteGeoRedirect)
 
-// B-13: Pages proxy origin (4.1: env helper). Reads PAGES_URL with a fallback
-// to the production Pages URL.
-const pageOrigin = (c: Context<{ Bindings: Env }>) => pagesOrigin(c.env)
-
-// Frontend routes - proxy to Cloudflare Pages (must come BEFORE /:id)
-app.get('/', async (c) => {
-  try {
-    const res = await fetch(`${pageOrigin(c)}/`)
-    return new Response(res.body, res)
-  } catch {
-    return c.json({ error: 'Failed to proxy to frontend' }, 502)
-  }
-})
-
-app.get('/admin', async (c) => {
-  try {
-    const res = await fetch(`${pageOrigin(c)}/admin/`)
-    return new Response(res.body, res)
-  } catch {
-    return c.json({ error: 'Failed to proxy to frontend' }, 502)
-  }
-})
+// Frontend routes - served via Workers Static Assets (must come BEFORE /:id)
+app.get('/', (c) => c.env.ASSETS.fetch(c.req.raw))
+app.get('/admin', (c) => c.env.ASSETS.fetch(c.req.raw))
 
 // Preview and password entry pages
 app.get('/preview/:id', previewLink)
@@ -244,34 +224,8 @@ app.get('/health', health)
 // not locked out by normal click traffic.
 app.get('/:id', redirectRateLimit, redirectLink)
 
-// Catch-all for other frontend routes — stream body to avoid corrupting binary assets
-app.all('*', async (c) => {
-  const url = new URL(c.req.url)
-  const pagesUrl = `${pageOrigin(c)}${url.pathname}${url.search}`
-
-  try {
-    const response = await fetch(pagesUrl, {
-      method: c.req.method,
-      headers: c.req.header(),
-      body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ? await c.req.arrayBuffer() : undefined,
-    })
-
-    const isHtml = response.headers.get('Content-Type')?.includes('text/html')
-
-    return new Response(response.body, {
-      status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'text/html',
-        // Short TTL for HTML; assets have content-addressed filenames so longer cache is fine
-        'Cache-Control': isHtml
-          ? 'public, max-age=0, must-revalidate'
-          : (response.headers.get('Cache-Control') || 'public, max-age=3600'),
-      },
-    })
-  } catch (err) {
-    return c.json({ error: 'Failed to proxy to frontend' }, 502)
-  }
-})
+// Catch-all — serves JS/CSS bundles and any other static assets
+app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
 
 export { RateLimiter } from './durableObjects/RateLimiter'
 
