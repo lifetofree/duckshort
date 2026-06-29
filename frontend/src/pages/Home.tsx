@@ -10,6 +10,7 @@ import { useShortenForm } from '../hooks/useShortenForm'
 import { useStatsView } from '../hooks/useStatsView'
 import { useGlobalStats } from '../hooks/useGlobalStats'
 import { useLinkStats } from '../hooks/useLinkStats'
+import LanguageSwitcher from '../components/LanguageSwitcher'
 
 type Tab = 'shorten' | 'stats'
 
@@ -36,8 +37,10 @@ export default function HomePage() {
         alignItems: 'center', justifyContent: 'center', padding: '3rem 1rem',
         background: 'var(--bg-primary)',
         paddingTop: import.meta.env.MODE === 'development' ? '5rem' : '3rem',
+        position: 'relative',
       }}
     >
+      <LanguageSwitcher />
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
         <div style={{ margin: '0 auto 1.75rem' }}>
           <DuckMoodLogo mood={mood} />

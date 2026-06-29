@@ -4,6 +4,27 @@ Archive of completed features, bug fixes, and security improvements.
 
 ---
 
+## v1.9.3 Enhancements & Fixes (2026-06-26)
+
+### ✅ Additional Locales (Thai) — SDLC-shipped
+- **Resolved**: Thai translation file at `frontend/src/locales/lang-th.json` mirrors the `lang-en.json` structure. `I18nProvider` extended to expose `locale` + `setLocale`; active locale persists in `localStorage` under `duckshort_locale`. `LanguageSwitcher` component added to the top-right of the Home page with neon-themed EN/TH pill. Falls back to English for missing keys, then to the raw key. All 144 unit tests pass.
+- **Process**: Shipped end-to-end via the `.ai.agents` SDLC framework (PO → PM → Tech Lead → Architect → TDD Coder → Reviewer → DevOps). Artifacts: `docs/BUSINESS_GOALS.md`, `docs/REQUIREMENTS.md`, `docs/USER_JOURNEY.md`, `docs/SYSTEM_DESIGN.md`, `docs/TECH_STACK.md`, `docs/REVIEWS.md`, `STATUS.md`.
+
+### ✅ Workers Static Assets frontend serving
+- **Resolved**: `wrangler.toml` adds `[assets] directory = "./frontend/dist" binding = "ASSETS" not_found_handling = "single-page-application"`. The Worker's `GET /`, `GET /admin`, and catch-all routes now delegate to `c.env.ASSETS.fetch(c.req.raw)`. `_redirects` + `_headers` in `frontend/public/` are no longer required for the Worker-served path. PAGES_URL var + `pagesOrigin()` helper removed (no longer needed).
+
+### ✅ Vitest 3 → 4 / vitest-pool-workers 0.16 upgrade (security)
+- **Resolved**: `npm audit` brought from 12 → 0 vulnerabilities via PR #18 (squash `976b914`). Package bumps: `@cloudflare/vitest-pool-workers` `^0.5.0` → `^0.16.20`, `vitest` `^2.0.0` → `^4.1.9`, `@vitest/coverage-istanbul` / `@vitest/coverage-v8` `^2.1.9` → `^4.1.9`. Test-infra changes: `vitest.config.ts` → `vitest.config.mts` (rewrite to `defineConfig` + `cloudflareTest()` plugin); `test/helpers/schema.ts` `clearAll()` extended to wipe the rate limiter DO storage (vitest-pool-workers 0.16 + miniflare 4 deliberately persist DO state across `it` blocks).
+
+### ✅ CI restore
+- **Resolved**: `.github/workflows/deploy-all.yml` recreated as `workflow_dispatch` only (intentionally not auto-deploying on push to `main` — captured in commit `2c8bde7`). Worker job: install → typecheck → D1 migrations → `wrangler deploy`. Frontend job: install → typecheck → build → `wrangler pages deploy`.
+
+### ✅ Footer version mismatch
+- **Fixed in**: `frontend/package.json`
+- `version` was still pinned at the project bootstrap value `1.0.0` while the rest of the project was at v1.9.2. Bumped to `1.9.3` so the `V{{version}}` footer (fed by Vite's `__APP_VERSION__` define) renders correctly.
+
+---
+
 ## v1.9.0 Enhancements & Fixes (2026-04-21)
 
 ### ✅ Custom Domains

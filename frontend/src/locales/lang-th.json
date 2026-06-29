@@ -1,0 +1,78 @@
+{
+  "common": {
+    "close": "ปิด",
+    "copy": "คัดลอก",
+    "copied": "คัดลอกแล้ว!",
+    "loading": "กำลังประมวลผล...",
+    "error": "ข้อผิดพลาด",
+    "go": "ไป",
+    "back": "← กลับ"
+  },
+  "home": {
+    "title": {
+      "duck": "เป็ด",
+      "short": "สั้น"
+    },
+    "tagline": "ส่งต่อด้วยความเร็วแสง",
+    "quacksServed": "🦆 {{count}} ครั้งการใช้งาน",
+    "tabs": {
+      "shorten": "ย่อลิงก์",
+      "viewStats": "ดูสถิติ"
+    },
+    "shortenForm": {
+      "urlPlaceholder": "วาง URL ยาวของคุณที่นี่...",
+      "customAliasPlaceholder": "ชื่อปรับแต่ง (ไม่บังคับ)...",
+      "expiry": "หมดอายุ:",
+      "expiryOptions": {
+        "never": "ไม่หมดอายุ",
+        "1hour": "1 ชั่วโมง",
+        "24hours": "24 ชั่วโมง",
+        "7days": "7 วัน",
+        "30days": "30 วัน",
+        "custom": "กำหนดเอง"
+      },
+      "customExpiryPlaceholder": "ชั่วโมง...",
+      "burnOnRead": "ทำลายเมื่ออ่าน (แบบอัตโนมัติ)",
+      "button": "ย่อ!",
+      "errors": {
+        "invalidUrl": "รูปแบบ URL ไม่ถูกต้อง",
+        "invalidCustomId": "รหัสปรับแต่งต้องมี 3-20 ตัวอักษร (ตัวอักษร ตัวเลข ขีดล่าง ขีดกลาง)",
+        "networkError": "ข้อผิดพลาดเครือข่าย เซิร์ฟเวอร์เบื้องหลังทำงานอยู่หรือไม่?",
+        "failedToShorten": "ข้อผิดพลาด {{status}}: ไม่สามารถย่อลิงก์ได้",
+        "unauthorized": "การย่อลิงก์ไม่สามารถใช้งานได้ชั่วคราว กรุณาลองใหม่อีกครั้งในภายหลัง",
+        "csrfMismatch": "เซสชันหมดอายุ กรุณารีเฟรชหน้าเว็บแล้วลองอีกครั้ง"
+      }
+    },
+    "statsForm": {
+      "placeholder": "ใส่รหัสลิงก์หรือโค้ดสั้น...",
+      "button": "ไป",
+      "error": "ข้อผิดพลาดเครือข่าย"
+    },
+    "stats": {
+      "totalVisits": "จำนวนการเข้าชมทั้งหมด",
+      "topCountries": "ประเทศยอดนิยม",
+      "topReferrers": "แหล่งอ้างอิงยอดนิยม"
+    },
+    "footer": "V{{version}}",
+    "modal": {
+      "title": "สร้างลิงก์แล้ว",
+      "yourShortUrl": "URL สั้นของคุณ",
+      "copyToClipboard": "คัดลอกไปยังคลิปบอร์ด",
+      "transferComplete": "โอนย้ายเสร็จสิ้น"
+    }
+  },
+  "devModeBar": {
+    "text": "โหมดพัฒนา"
+  },
+  "duckMood": {
+    "dormant": "หลับ",
+    "active": "ตื่น",
+    "busy": "ยุ่ง",
+    "viral": "ไวรัล",
+    "degraded": "ขัดข้อง"
+  },
+  "quackCounter": {
+    "served": "🦆 {{count}} ครั้งการใช้งาน"
+  },
+  "poweredBy": "สนับสนุนโดย Adduckivity"
+}

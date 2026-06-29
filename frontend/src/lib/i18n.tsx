@@ -1,8 +1,11 @@
-import { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 import enTranslations from '../locales/lang-en.json'
+import thTranslations from '../locales/lang-th.json'
 
 type TranslationParams = Record<string, string | number>
 export type { TranslationParams }
+
+export type Locale = 'en' | 'th'
 
 interface Translations {
   [key: string]: string | Translations
@@ -10,10 +13,16 @@ interface Translations {
 
 interface I18nContextType {
   t: (key: string, params?: TranslationParams) => string
-
+  locale: Locale
+  setLocale: (locale: Locale) => void
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined)
+
+const translationsMap: Record<Locale, Translations> = {
+  en: enTranslations as Translations,
+  th: thTranslations as Translations,
+}
 
 // Helper function to get nested value from object using dot notation
 function getNestedValue(obj: Translations, path: string): string | Translations | undefined {
@@ -40,8 +49,37 @@ function replaceParams(text: string, params?: TranslationParams): string {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }): React.JSX.Element {
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    try {
+      const saved = localStorage.getItem('duckshort_locale')
+      if (saved === 'en' || saved === 'th') {
+        return saved
+      }
+    } catch {
+      // Ignored
+    }
+    return 'en'
+  })
+
+  const setLocale = (newLocale: Locale) => {
+    if (newLocale === 'en' || newLocale === 'th') {
+      setLocaleState(newLocale)
+      try {
+        localStorage.setItem('duckshort_locale', newLocale)
+      } catch {
+        // Ignored
+      }
+    }
+  }
+
   const t = (key: string, params?: TranslationParams): string => {
-    const value = getNestedValue(enTranslations as Translations, key)
+    // Attempt lookup in the current locale
+    let value = getNestedValue(translationsMap[locale], key)
+    
+    // Fallback to English if not found and current locale is not English
+    if (value === undefined && locale !== 'en') {
+      value = getNestedValue(translationsMap['en'], key)
+    }
     
     if (value === undefined) {
       console.warn(`Translation key not found: ${key}`)
@@ -57,7 +95,7 @@ export function I18nProvider({ children }: { children: ReactNode }): React.JSX.E
   }
 
   return (
-    <I18nContext.Provider value={{ t }}>
+    <I18nContext.Provider value={{ t, locale, setLocale }}>
       {children}
     </I18nContext.Provider>
   )

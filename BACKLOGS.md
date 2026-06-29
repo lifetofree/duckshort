@@ -7,17 +7,14 @@ Resolved items are archived in `HISTORY.md`.
 
 ## Roadmap Gaps
 
-### Custom Domains
-- **Status**: Not yet implemented.
-- **Approach**: Route matching logic to resolve incoming requests by custom domain, and a `custom_domain` column on the `links` table.
+_(None — all roadmap items have shipped.)_
+
+- ~~Custom Domains~~ — shipped v1.9.0
+- ~~Additional Locales~~ — shipped v1.9.3 (Thai translation + language switcher)
 
 ---
 
 ## Missing Features
-
-### Additional Locales
-- **Status**: Only English (`lang-en.json`) is currently wired; locale-switching UI not built.
-- **Approach**: Extend `I18nProvider` to accept a `locale` prop, create `lang-th.json` (Thai translation template already exists in `lang-th.md`), add a language switcher component.
 
 ### Admin: search and filter
 - All links shown in creation order with no search or sort.
@@ -27,47 +24,33 @@ Resolved items are archived in `HISTORY.md`.
 
 ## Improvements
 
-### Neon Heatmap Visualization
-- Transform the existing country stats into a visual geographic heatmap.
-- **Approach**: Integrate a lightweight SVG map library in the `Home.tsx` stats tab to visualize `cf-ipcountry` data with neon glows.
-
-### Geo-Fencing Redirects
-- Redirect users to different URLs based on their country.
-- **Approach**: Leverage the `cf-ipcountry` header in the redirect handler to match against a new `geo_redirects` table or column.
-
-### Pagination for stats queries (frontend)
-- The backend now accepts `?limit=N` (1–100, default 10) for top countries/referrers.
-- **Status**: Done. `StatsView.tsx` now exposes a limit selector (Top 5/10/25/50/100).
-- **Approach**: Expose a limit selector in `StatsView.tsx` so users can choose how many rows to show.
+### PLAN_IMPROVEMENT Wave 3
+The remaining unimplemented items from `docs/PLAN_IMPROVEMENT.md`:
+- **3.3** Webhook delivery retries (exponential back-off, `webhook_attempts` table)
+- **5.1** End-to-end Playwright tests for the SPA
+- **5.5** Visual regression testing for Admin dashboard
+- **6.3** `link_settings` table for future per-link toggles
+- **8.3** Generate OpenAPI spec from Hono handlers (`hono-openapi`)
 
 ---
 
 ## Code Quality
 
-### [LOW] CORS is fully open
-- `origin: (origin) => origin ?? '*'` in `src/index.tsx` allows any origin.
-- Not a bug for a public tool, but should be documented as intentional.
+### [LOW] CORS allowlist is explicit
+- `src/index.tsx` CORS `origin` is a hardcoded allowlist of `duckshort.cc`, `duckshort.pages.dev`, and the two localhost ports.
+- Documented as intentional; not a bug for a public tool.
+
+### [LOW] `vitest` major mismatch between workspaces
+- Root `package.json` is on `vitest@^4.1.9` (Workers pool runs the backend tests).
+- `frontend/package.json` is still on `vitest@^2.0.0` (frontend component tests).
+- Works today because each workspace runs `vitest` against its own config, but `depcheck` will flag it as a "two installs" risk.
+- **Approach**: Bump frontend to `vitest@^4` and verify `frontend/vitest.config.ts` + `frontend/src/__tests__/` are compatible. Captured under Wave 3 follow-ups.
+
+---
 
 ## Dependencies
 
-### vitest 3 -> 4 / vitest-pool-workers upgrade (security)
-- **Discovered**: 2026-06-26 npm audit.
-- **Status**: **DONE — merged via squash on 2026-06-26 as commit `976b914` (PR #18, `deps/vitest-4-upgrade` -> `develop`). `npm audit` reports 0 vulnerabilities, 264/264 backend tests green.**
-- **Why**: Eliminated 12 audit vulnerabilities (4 critical, 4 high, 4 moderate) all transitive through `@cloudflare/vitest-pool-workers@^0.5.0` and `wrangler@^4.83.0` (devalue prototype pollution, undici smuggling/Set-Cookie injection, ws memory disclosure, esbuild dev-server leak, vite-node).
-- **Package.json bumps applied**:
-  - `@cloudflare/vitest-pool-workers` `^0.5.0` -> `^0.16.20` (major)
-  - `@vitest/coverage-istanbul` `^2.1.9` -> `^4.1.9` (major)
-  - `@vitest/coverage-v8` `^2.1.9` -> `^4.1.9` (major)
-  - `vitest` `^2.0.0` -> `^4.1.9` (major, transitive but pinned range)
-- **Test-infra changes shipped**:
-  - `vitest.config.ts` -> `vitest.config.mts` rewritten to use `defineConfig` from `vitest/config` + `cloudflareTest()` Vite plugin (the old `defineWorkersConfig` / `poolOptions.workers` shape is gone in 0.16). Renaming to `.mts` avoids the rolldown bundler trying to `require()` the now-ESM-only `@cloudflare/vitest-pool-workers` package.
-  - `test/helpers/schema.ts`: extended `clearAll()` to also wipe the rate limiter Durable Object storage for the well-known test IP (`'unknown'`) under both buckets. Required because vitest-pool-workers 0.16 + miniflare 4 deliberately **persist** DO state across `it` blocks within a test file (the old 0.5.x storage-stack reset no longer applies to DOs). Without this, sibling tests leak rate-limit counters into each other and 429 mid-suite.
-  - `worker-configuration.d.ts`: regenerated via `wrangler types`.
-- **Verification on the merged commit**:
-  - `npm audit` -> 0 vulnerabilities.
-  - `npm test` -> 264/264 green.
-  - `npm run typecheck` -> 0 errors.
-  - `npm run lint` -> 0 errors, 4 warnings (baseline).
-  - `npm run test:coverage` -> 89.17% stmts / 80.23% branches / 95.87% funcs / 91.33% lines, thresholds (60/60/50/60) all pass.
-- **Production note**: The upgrade has NOT yet been deployed to production. Production (`duckshort.cc` Worker `085f8931-...`, Pages `eb82fb82.duckshort.pages.dev`) is still running the previous v1.9.2 deploy from the safe `npm audit fix`. Deploying the upgrade requires a manual `wrangler deploy` + `wrangler pages deploy frontend/dist --project-name duckshort` after build.
-- **Follow-up**: `.github/dependabot.yml` `vitest-stack` group override can stay; it will continue to batch weekly PRs for vitest / @vitest / @cloudflare/vitest-pool-workers. No config change needed.
+### `npm audit` is currently clean
+- Last audit (2026-06-26, after PR #18 vitest 4 upgrade): **0 vulnerabilities**.
+- Dependabot is configured (`vitest-stack` group override batches weekly updates for vitest / @vitest / @cloudflare/vitest-pool-workers).
+- Action required: none, but re-run weekly.

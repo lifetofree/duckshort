@@ -1,8 +1,10 @@
 # System Design
 
-**DuckShort** — URL shortener on Cloudflare Workers + D1 + Pages  
-**Stage:** Production v1 — post-3rd audit, all audit items closed  
-**As of:** 2026-06-18
+**DuckShort** — URL shortener on Cloudflare Workers + D1 + Workers Static Assets  
+**Stage:** Production (v1.9.3) — all audit items closed  
+**As of:** 2026-06-18 (Wave 1 refresh); v1.9.3 production deploy pending  
+
+> **Deprecation note (2026-06-26):** This deep-architecture doc is **stale** on a few points that changed in v1.9.3: (a) the frontend is now served by **Workers Static Assets** instead of Pages (no more `PAGES_URL` var or `pagesOrigin()` helper); (b) the architecture diagram below still shows Pages. The canonical, up-to-date architecture summary now lives in `AGENTS.md` (see "Core Architecture" and "Routing Architecture" sections). Use this file for the historical request-flow walkthroughs and the security-header middleware discussion — those are still correct in shape even where the diagram is wrong. A full rewrite is tracked in `BACKLOGS.md` → Wave 3 follow-ups.
 
 > Refreshed in Wave 1 of `docs/PLAN_IMPROVEMENT.md` (item 8.1). Reflects the
 > current state after the rate-limit bucket split, HMAC session model, PBKDF2

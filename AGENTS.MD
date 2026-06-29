@@ -57,6 +57,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - **Security Headers (S-19):** Every Worker response sets `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Referrer-Policy: strict-origin-when-cross-origin` via global middleware in `src/index.tsx`.
 - **Tightened Localhost Check (S-18):** `isLocalHostname()` in `src/middleware/customDomain.ts` requires exact match on `localhost`, `localhost:*`, `127.*`, or `[::1]`. Substring-based detection is rejected.
 - **Referer Sanitisation (S-20):** `refererHostname()` in `src/lib/redirectUtils.ts` stores only the hostname (no path/query/fragment) in the `analytics.referer` column.
+- **Case-Insensitive Link Lookups (S-21):** QR scanners (Android camera, WeChat, Google Lens, many iOS preview flows) routinely lower-case the URL before opening it, and D1/SQLite compares `TEXT` case-sensitively by default — so a link stored as `VibeCoding-01` would 404 when a scanner opened `vibecoding-01`. All link lookups now use `COLLATE NOCASE` (`loadLinkRow` and every inline `WHERE id = ?` in `redirect.tsx`, `password.tsx`, `preview.tsx`, `stats.ts`, `admin.ts`). IDs stay **stored as-typed** (so `MyCustomID` is still stored and displayed that way); only the match is case-insensitive. The redirect Cache API key is lower-cased so case variants share one entry, and `purgeRedirectCache` uses the same lower-casing. The Hono app is constructed with `{ strict: false }` so `/:id/` (trailing slash) matches `/:id` instead of falling through to the SPA shell. Handlers that join on `link_id` (analytics, variants, geo-redirects) resolve the **stored** id from the row before binding, so rows written with the original casing still join correctly when the request arrived in a different case.
 - **Enumeration Prevention:** NanoID Base62 (8 chars, 62^8 ≈ 218 T combinations) prevents sequential guessing.
 - **Rate Limiting:** `src/middleware/rateLimit.ts` calls a `RateLimiter` Durable Object which uses `storage.transaction()` for atomic per-IP check-and-increment. Two pools are isolated by the DO id: `api:<ip>` capped at 20 req/hr (`RATE_LIMIT_MAX_REQUESTS`) and `redirect:<ip>` capped at 200 req/hr (`RATE_LIMIT_REDIRECT_MAX_REQUESTS`). Fails open with a `rate_limit_disabled_binding_missing` log if the `RATE_LIMITER` binding is absent.
 - **Webhook Timeout (P-18):** Outgoing webhook POSTs are wrapped in an `AbortController` with a 5 000 ms timeout (`WEBHOOK_TIMEOUT_MS`).
@@ -79,7 +80,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **UTM Parameter Injection:** `utm_source/medium/campaign` appended on redirect (shared via `src/lib/utm.ts`)
 - [x] **Webhook on Click:** `webhook_url`; async POST fired via `waitUntil` on each redirect
 - [x] **A/B Link Rotation:** `link_variants` table with weighted random destination selection — applied in both `redirect.tsx` and `password.tsx`
-- [x] **Password-Protected Links:** `password_hash` (SHA-256); redirects to `/password/:id` interstitial
+- [x] **Password-Protected Links:** `password_hash` (PBKDF2-SHA-256, 100k iterations); redirects to `/password/:id` interstitial
 - [x] **Click-through Preview:** `GET /preview/:id` branded interstitial before redirect
 - [x] **OG Tag Customization:** `og_title`, `og_description`, `og_image` columns on `links`; injected into `<meta property="og:*">` tags on the preview page
 - [x] **Stats API:** Per-link visits, top N countries, top N referrers (`GET /api/stats/:id?limit=N`, default 10, max 100)
@@ -93,7 +94,7 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Analytics Timestamp:** `analytics.timestamp` column with index for time-based queries
 - [x] **Observability:** `wrangler.toml` sets `observability.enabled = true`
 - [x] **Encrypted Secrets:** `ADMIN_SECRET` stored via `wrangler secret put`, not in repo
-- [x] **Pages Deployment:** `_redirects` + `_headers` in `frontend/public/` for SPA routing and security headers
+- [x] **Workers Static Assets Frontend Serving:** `wrangler.toml [assets]` binds `frontend/dist` as the `ASSETS` binding (single deploy unit); `not_found_handling = "single-page-application"` covers SPA routing
 - [x] **CI/CD Pipelines:** GitHub Actions workflows for Worker and Pages deployment
 - [x] **i18n System:** Custom `I18nProvider` + `useTranslation` hook with dot-notation key resolution and `{{param}}` interpolation; English locale at `frontend/src/locales/lang-en.json`
 - [x] **Auto-Version Footer:** `__APP_VERSION__` injected at build time from `package.json` via Vite `define`
@@ -104,6 +105,8 @@ Provide lightning-fast redirects and secure link management with a visually stri
 - [x] **Neon Heatmap:** Geographic heatmap visualization for country stats — `NeonHeatmap` component renders country blocks with neon glow intensity (cyan→magenta gradient) proportional to visit share; displayed above the countries list in `StatsView`
 - [x] **Geo-Fencing Redirects:** `geo_redirects` table (migration `0006_geo_redirects.sql`); `GET/POST /api/links/:id/geo-redirects`, `DELETE /api/links/geo-redirects/:geoId`; `redirect.tsx` checks `cf-ipcountry` header after A/B selection and applies matching country rule; "GEO" button and panel added to Admin dashboard
 - [x] **Custom Domains:** Per-link custom domain routing via `custom_domain` column. `PATCH /api/links/:id` accepts `action: "set_custom_domain"` with `custom_domain` string (or `null` to unset). `resolveCustomDomain` middleware intercepts non-primary hostnames, looks up the link by domain, and applies full redirect logic (A/B variants, geo-redirects, UTM, burn-on-read, webhooks, analytics).
+- [x] **Additional Locales (Thai):** `I18nProvider` exposes `locale` + `setLocale`; `lang-th.json` mirrors `lang-en.json`; `LanguageSwitcher` is a neon-themed EN/TH pill in the top-right of the Home page. Active locale persists in `localStorage` under `duckshort_locale`; missing Thai keys fall back to English then to the raw key. (v1.9.3, SDLC-shipped.)
+- [x] **Case-Insensitive Short Links (S-21):** All link-ID lookups are case-insensitive (`COLLATE NOCASE`) so QR scanners that lower-case the URL still resolve. Trailing-slash requests (`/:id/`) redirect via Hono `{ strict: false }` instead of falling through to the SPA shell. Regression tests in `test/handlers/case-insensitive.test.ts`.
 
 ## Not Yet Implemented
 
@@ -154,15 +157,16 @@ cd frontend && npm run test
 ### Routing Architecture
 - All traffic to `duckshort.cc` is intercepted by the **Worker Route** (`duckshort.cc/*` with `zone_name = "duckshort.cc"` in `wrangler.toml`).
 - The Worker handles everything: API, redirects, password/preview interstitials, and the root SPA shell.
-- `GET /` dynamically fetches and proxies `https://duckshort.pages.dev/` so the correct JS/CSS asset filenames are always served — no hardcoded hashes.
-- Pages `_redirects` provides fallback routing if Pages is accessed directly.
+- The SPA is served from **Workers Static Assets** (`[assets] directory = "./frontend/dist"`, `binding = "ASSETS"`, `not_found_handling = "single-page-application"`). `GET /`, `GET /admin`, and the catch-all delegate to `c.env.ASSETS.fetch(c.req.raw)` — single deploy unit, no Pages round-trip.
+- Security headers (S-19) and CSP middleware run on every response but skip-if-already-set, so the Workers Static Assets proxy can override per route.
 
 ### GitHub Actions Workflows
 | Workflow | Trigger | What it does |
 |----------|---------|--------------|
-| `deploy-all.yml` | Push to `main` | Deploys Worker then Pages (sequential) |
+| `deploy-all.yml` | `workflow_dispatch` (intentionally not on push) | Deploys Worker then Pages (sequential); auto-deploy on `main` was disabled in commit `2c8bde7` |
 | `deploy-worker.yml` | `workflow_dispatch` | Worker only |
 | `deploy-frontend.yml` | `workflow_dispatch` | Pages only |
+| `deploy-staging.yml` | PR open against `develop` or `workflow_dispatch` | Deploys staging stack (separate D1 + Pages project) per `docs/OPERATIONS.md §staging` |
 
 ### Required GitHub Secrets
 | Secret | Value |
@@ -224,9 +228,7 @@ DuckShort/
 │
 ├── frontend/                         # Frontend — Cloudflare Pages (React 18 SPA)
 │   ├── public/
-│   │   ├── favicon.ico               # Duck favicon
-│   │   ├── _redirects                # Proxy rules to Worker + SPA fallback
-│   │   └── _headers                  # Security headers (/*) + Cache-Control (/assets/*)
+│   │   └── favicon.ico               # Duck favicon (Workers Static Assets serves `dist/` directly)
 │   ├── src/
 │   │   ├── main.tsx                  # ReactDOM root + I18nProvider + BrowserRouter
 │   │   ├── App.tsx                   # Router: / → Home, * → 404
@@ -268,7 +270,10 @@ DuckShort/
 │   ├── 0005_og_tags.sql             # og_title, og_description, og_image columns
 │   ├── 0006_geo_redirects.sql      # geo_redirects table for country-based redirects
 │   ├── 0007_custom_domain.sql      # custom_domain column on links
-│   └── 0008_visits_counters.sql    # visits column on links + counters table (P-01/P-06/P-11/P-13)
+│   ├── 0008_visits_counters.sql    # visits column on links + counters table (P-01/P-06/P-11/P-13)
+│   ├── 0009_analytics_id.sql       # analytics.id TEXT PK for GDPR-style single-row deletion (P-17)
+│   ├── 0010_analytics_link_country_index.sql  # composite indexes (link_id, country) + (link_id, referer) (6.2)
+│   └── 0011_link_stats_daily.sql   # link_stats_daily pre-aggregation table (6.1)
 │
 ├── test/                             # Backend Vitest tests (Workers pool)
 │   ├── handlers/
@@ -286,7 +291,7 @@ DuckShort/
 │       └── nanoid.test.ts
 │
 ├── .github/workflows/
-│   ├── deploy-all.yml                # push to main: worker then pages (sequential)
+│   ├── deploy-all.yml                # workflow_dispatch only — auto-deploy on push to main is intentionally disabled (commit 2c8bde7); runs worker → pages in sequence
 │   ├── deploy-worker.yml             # workflow_dispatch: typecheck → test → migrate → deploy
 │   └── deploy-frontend.yml           # workflow_dispatch: typecheck → build → pages deploy
 │
@@ -298,7 +303,7 @@ DuckShort/
 ├── .dev.vars                         # Local secrets — gitignored
 ├── package.json                      # Backend deps + scripts (wrangler ^4, hono ^4, nanoid ^5)
 ├── tsconfig.json                     # Backend TS config
-├── vitest.config.ts                  # @cloudflare/vitest-pool-workers config
+├── vitest.config.mts                 # @cloudflare/vitest-pool-workers 0.16 config (was .ts before PR #18)
 ├── wrangler.toml                     # Worker config: name, D1, KV, DO binding + migration, observability
 ├── AGENTS.MD                         # This file
 ├── BACKLOGS.md                       # Active feature gaps and improvements
@@ -316,7 +321,7 @@ DuckShort/
 | created_at | TEXT NOT NULL | ISO 8601 |
 | expires_at | TEXT | NULL = never; compared via `datetime(expires_at)` |
 | disabled | INTEGER | 0/1 soft delete |
-| password_hash | TEXT | SHA-256 hex |
+| password_hash | TEXT | PBKDF2-SHA-256 (100k iterations, 32-byte key, per-link salt) |
 | tag | TEXT | Campaign label |
 | utm_source | TEXT | |
 | utm_medium | TEXT | |
@@ -332,9 +337,10 @@ DuckShort/
 ### `analytics`
 | Column | Type | Notes |
 |--------|------|-------|
+| id | TEXT | 16-char hex token PK (P-17); NULL for legacy pre-0009 rows |
 | link_id | TEXT FK | → links(id) CASCADE |
 | country | TEXT | cf-ipcountry header |
-| referer | TEXT | Truncated 255 chars |
+| referer | TEXT | Hostname only (path/query/fragment stripped per S-20), truncated 255 chars |
 | user_agent | TEXT | Truncated 255 chars |
 | timestamp | TEXT | datetime('now'), indexed |
 
@@ -358,17 +364,27 @@ DuckShort/
 | Column | Type | Notes |
 |--------|------|-------|
 | key | TEXT PK | Counter name (e.g. `total_visits`) |
-| value | INTEGER | Not null, default 0. Incremented atomically in `recordAnalytics` (P-01/P-11) |
+| value | INTEGER | Not null, default 0. Incremented atomically in `recordAnalytics` (P-01/P-11); self-heal cron reconciles against `analytics` row count |
+
+### `link_stats_daily`
+| Column | Type | Notes |
+|--------|------|-------|
+| link_id | TEXT FK | → links(id) CASCADE. Composite PK with `day`. |
+| day | TEXT | `YYYY-MM-DD`. Composite PK with `link_id`. |
+| count | INTEGER | Visit count for that day. |
+
+Populated by the hourly `aggregateLinkStatsDaily` cron. `getStats` and `getLinks` read from here for the 7-day sparkline (fallback to live `analytics` aggregation if the cron hasn't run yet).
 
 ## API Reference
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET | `/api/stats/global` | — | Total visits, hourly count, duck mood |
-| GET | `/api/stats/:id?limit=N` | — | Per-link stats (visits, top N countries/referrers; default 10, max 100) |
+| GET | `/health` | — | Liveness probe — 200 with `{ status, components: { db, rate_limiter } }` or 503 |
+| GET | `/api/stats/global` | — | Total visits, hourly count, duck mood (cached 30s) |
+| GET | `/api/stats/:id?limit=N` | — | Per-link stats (visits, top N countries/referrers; default 10, max 100) — `referer` is hostname-only (S-20) |
 | GET | `/api/links?cursor=<ts>&limit=N` | Bearer | Paginated links with 7-day sparkline (default 50, max 100). Response: `{ links, nextCursor }` |
-| POST | `/api/links` | Bearer | Create short link (accepts `og_title`, `og_description`, `og_image`) |
-| POST | `/api/links/bulk-delete` | Bearer | Delete multiple links (rate-limited) |
+| POST | `/api/links` | Field-aware | Create short link (rate-limited). Public for basic fields (url, customId, burn_on_read, expiresIn, password); admin fields (tag, webhook_url, utm_*, og_*, variants) require Bearer or cookie + CSRF |
+| POST | `/api/links/bulk-delete` | Bearer | Delete multiple links (rate-limited, max 100 ids) |
 | PATCH | `/api/links/:id` | Bearer | Toggle disable, extend expiry, or set custom domain (`action: "toggle" | "extend" | "set_custom_domain"`) |
 | DELETE | `/api/links/:id` | Bearer | Delete link |
 | GET | `/api/links/:id/variants` | Bearer | List A/B variants |
@@ -378,7 +394,10 @@ DuckShort/
 | GET | `/api/links/:id/geo-redirects` | Bearer | List geo-redirect rules for a link |
 | POST | `/api/links/:id/geo-redirects` | Bearer | Add geo-redirect rule (`country_code`, `destination_url`) |
 | DELETE | `/api/links/geo-redirects/:geoId` | Bearer | Delete geo-redirect rule |
+| POST | `/api/auth` | — | Login; sets `admin_token` + `XSRF-TOKEN` cookies (rate-limited, 20/hr) |
+| POST | `/api/logout` | — | Clear auth cookies |
+| GET | `/api/auth/check` | — | `{ authenticated: boolean }` for SPA |
 | GET | `/preview/:id` | — | Click-through preview interstitial (with OG meta tags) |
 | GET | `/password/:id` | — | Password entry form |
-| POST | `/password/:id` | — | Verify password + redirect (A/B + UTM + webhook) |
-| GET | `/:id` | — | Main redirect (302) |
+| POST | `/password/:id` | — | Verify password + redirect (A/B + UTM + webhook) — rate-limited (200/hr, S-15) |
+| GET | `/:id` | — | Main redirect (302) — rate-limited (200/hr) |

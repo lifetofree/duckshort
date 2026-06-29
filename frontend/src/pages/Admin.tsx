@@ -74,15 +74,19 @@ export default function AdminPage() {
 
   const fetchLinkStats = async (linkId: string, limit: number = statsLimit) => {
     try {
+      console.log('[DEBUG] fetchLinkStats called', { linkId, limit })
       const res = await fetch(`${API}/api/stats/${linkId}?limit=${limit}`)
+      console.log('[DEBUG] fetchLinkStats response', { ok: res.ok, status: res.status })
       if (res.ok) {
         const data = await res.json()
+        console.log('[DEBUG] fetchLinkStats data', JSON.stringify(data).slice(0, 100))
         setLinkStats(data)
+        console.log('[DEBUG] setLinkStats called with', typeof data)
       } else {
         console.error('Failed to fetch link stats', { status: res.status, statusText: res.statusText, url: `${API}/api/stats/${linkId}?limit=${limit}` })
       }
     } catch (err) {
-      console.error('Failed to fetch link stats', err)
+      console.error('[DEBUG] fetchLinkStats error', err)
     }
   }
 
@@ -319,7 +323,7 @@ export default function AdminPage() {
             </Suspense>
           )}
 
-          {tab === 'link-stats' && selectedLinkForStats && linkStats && (
+          {tab === 'link-stats' && selectedLinkForStats && (console.log('[DEBUG] render check: tab=link-stats, selectedLinkForStats=', selectedLinkForStats, 'linkStats=', linkStats), true) && linkStats && (
             <Suspense fallback={<TabFallback />}>
               <PerLinkStatsView
                 selectedLinkForStats={selectedLinkForStats}
