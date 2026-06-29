@@ -40,7 +40,12 @@ function newAnalyticsId(): string {
 // dispatchRedirect). Only the `redirect` kind is cached.
 function cacheKey(env: { BASE_URL?: string }, id: string): string {
   const baseUrl = (env.BASE_URL || 'https://duckshort.cc').replace(/\/+$/, '')
-  return `${baseUrl}/__redirect_cache__/${id}`
+  // S-21: lower-case the id segment so `VibeCoding-01` and `vibecoding-01`
+  // share one cache entry. Without this, a scanner that lowercased the URL
+  // would miss the cache populated by an exact-case request (or vice-versa),
+  // and `purgeRedirectCache` keyed on the stored id would fail to evict an
+  // entry written under a different case.
+  return `${baseUrl}/__redirect_cache__/${id.toLowerCase()}`
 }
 
 interface CachedRedirect {
@@ -122,14 +127,33 @@ function writeCache(
   }
 }
 
-// F-03: Shared link-row SELECT + gate logic for all redirect handlers
+// S-21: Case-insensitive short-link lookups. QR scanners (Android camera,
+// WeChat, Google Lens, many iOS preview flows) routinely lowercase the URL
+// before opening it, and D1/SQLite compares TEXT case-sensitively by default
+// — so `VibeCoding-01` stored in D1 would 404 when a scanner opened
+// `vibecoding-01`. Two normalisations happen here:
+//
+//   1. `normalizeLinkId()` strips a single trailing slash (`VibeCoding-01/`
+//      → `VibeCoding-01`) so trailing-slash requests don't fall through to
+//      the SPA shell. Case is preserved (the stored row keeps its original
+//      casing); the DB match uses COLLATE NOCASE.
+//   2. The redirect cache key is lower-cased so `VibeCoding-01` and
+//      `vibecoding-01` share one cache entry. `purgeRedirectCache` must use
+//      the same lower-casing to invalidate correctly (it does, via
+//      `cacheKey`).
+export function normalizeLinkId(raw: string): string {
+  return raw.replace(/\/+$/, '')
+}
+
+// F-03: Shared link-row SELECT + gate logic for all redirect handlers.
+// Uses COLLATE NOCASE so lookups are case-insensitive (see S-21 above).
 const LINK_ROW_SELECT = `SELECT id, original_url, disabled, expires_at, password_hash,
        utm_source, utm_medium, utm_campaign, webhook_url, burn_on_read,
        (expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')) as is_expired`
 
 export async function loadLinkRow(db: D1Database, id: string, byColumn: 'id' | 'custom_domain' = 'id'): Promise<RedirectLinkRow | null> {
   const column = byColumn === 'custom_domain' ? 'custom_domain' : 'id'
-  return db.prepare(`${LINK_ROW_SELECT} FROM links WHERE ${column} = ?`)
+  return db.prepare(`${LINK_ROW_SELECT} FROM links WHERE ${column} = ? COLLATE NOCASE`)
     .bind(id).first<RedirectLinkRow>()
 }
 

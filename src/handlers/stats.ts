@@ -11,50 +11,57 @@ function getMood(hourlyVisits: number): Mood {
 }
 
 export async function getStats(c: Context<{ Bindings: Env }>) {
-  const { id } = c.req.param()
+  const { id: rawId } = c.req.param()
+  const id = rawId.replace(/\/+$/, '')
   const limitParam = parseInt(c.req.query('limit') ?? '10', 10)
   const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 100 ? limitParam : 10
+
+  // S-21: resolve the link row first (case-insensitive) so the analytics /
+  // sparkline queries below bind the STORED id. Otherwise a request in a
+  // different case than the stored row (e.g. a QR scanner that lowercased
+  // the URL) would correctly find the link but match zero analytics rows.
+  const link = await c.env.DB.prepare(
+    'SELECT id, original_url, created_at, expires_at, disabled, tag FROM links WHERE id = ? COLLATE NOCASE'
+  ).bind(id).first<{ id: string; original_url: string; created_at: string; expires_at: string | null; disabled: number; tag: string | null }>()
+
+  if (!link) return c.json({ error: 'Not found' }, 404)
+  const linkId = link.id
 
   // 2.5: Use SQLite's `strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-7 days')`
   // server-side instead of computing a JS ISO timestamp and binding it.
   // Cuts a Date allocation per request and keeps the SQL self-describing.
-  // `strftime` with the ISO-8601 template matches the format we store in the
-  // `timestamp` column (also ISO-8601 UTC), so lexical comparison is correct.
+  // `strftime` with the ISO-8601 template matches the format we store in
+  // the `timestamp` column (also ISO-8601 UTC), so lexical comparison is correct.
   const SPARKLINE_WINDOW = "strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-7 days')"
   // 6.1: link_stats_daily.day is stored as YYYY-MM-DD, so we use date() here
   // to compare against the timestamp-anchored window. Two columns, two
   // formats — we coalesce inside JS below.
   const SPARKLINE_WINDOW_DAY = "strftime('%Y-%m-%d', 'now', '-6 days')"
 
-  // All 5 queries run in parallel (P-09). The sparkline read uses the
-  // pre-aggregated cache (link_stats_daily); on a cache miss we fall back
-  // to scanning `analytics` (test fixtures, first deploy). Both queries
-  // share the same result shape — `{ day, count }[]` — so the post-
-  // processing code is identical.
-  const [link, visits, countries, referrers, sparklineCache] = await Promise.all([
-    c.env.DB.prepare(
-      'SELECT id, original_url, created_at, expires_at, disabled, tag FROM links WHERE id = ?'
-    ).bind(id).first(),
-    c.env.DB.prepare('SELECT COUNT(*) as count FROM analytics WHERE link_id = ?').bind(id).first<{ count: number }>(),
+  // All 4 remaining queries run in parallel (P-09). The sparkline read uses
+  // the pre-aggregated cache (link_stats_daily); on a cache miss we fall back
+  // to scanning `analytics` (test fixtures, first deploy). Both queries share
+  // the same result shape — `{ day, count }[]` — so the post-processing code
+  // is identical.
+  const [visits, countries, referrers, sparklineCache] = await Promise.all([
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM analytics WHERE link_id = ?').bind(linkId).first<{ count: number }>(),
     c.env.DB.prepare(
       `SELECT country, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY country ORDER BY count DESC LIMIT ?`
-    ).bind(id, limit).all(),
+    ).bind(linkId, limit).all(),
     c.env.DB.prepare(
       `SELECT referer, COUNT(*) as count FROM analytics WHERE link_id = ? GROUP BY referer ORDER BY count DESC LIMIT ?`
-    ).bind(id, limit).all(),
+    ).bind(linkId, limit).all(),
     c.env.DB.prepare(
       `SELECT day, count FROM link_stats_daily WHERE link_id = ? AND day >= ${SPARKLINE_WINDOW_DAY}`
-    ).bind(id).all<{ day: string; count: number }>(),
+    ).bind(linkId).all<{ day: string; count: number }>(),
   ])
 
   let sparklineRows = sparklineCache
   if (sparklineCache.results.length === 0) {
     sparklineRows = await c.env.DB.prepare(
       `SELECT date(timestamp) as day, COUNT(*) as count FROM analytics WHERE link_id = ? AND timestamp >= ${SPARKLINE_WINDOW} GROUP BY day`
-    ).bind(id).all<{ day: string; count: number }>()
+    ).bind(linkId).all<{ day: string; count: number }>()
   }
-
-  if (!link) return c.json({ error: 'Not found' }, 404)
 
   // Build the last 7 days server-side as well — still cheap in JS, but keeps
   // the SQL boundary clean.

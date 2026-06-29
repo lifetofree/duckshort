@@ -166,8 +166,11 @@ export async function createLink(c: Context<{ Bindings: Env }>) {
       return c.json({ error: 'Custom ID must be 3-20 characters (alphanumeric, underscore, hyphen)' }, 400)
     }
 
+    // S-21: case-insensitive collision check so `MyID` and `myid` are treated
+    // as the same alias (lookups are case-insensitive too — keeping both
+    // would be ambiguous).
     const existing = await c.env.DB.prepare(
-      'SELECT id FROM links WHERE id = ?'
+      'SELECT id FROM links WHERE id = ? COLLATE NOCASE'
     ).bind(id).first()
     if (existing) return c.json({ error: 'Custom alias already taken' }, 409)
   }
@@ -243,12 +246,12 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
 
   if (body.action === 'toggle') {
     const link = await c.env.DB.prepare(
-      'SELECT disabled FROM links WHERE id = ?'
+      'SELECT disabled FROM links WHERE id = ? COLLATE NOCASE'
     ).bind(id).first<{ disabled: number }>()
     if (!link) return c.json({ error: 'Not found' }, 404)
 
     await c.env.DB.prepare(
-      'UPDATE links SET disabled = ? WHERE id = ?'
+      'UPDATE links SET disabled = ? WHERE id = ? COLLATE NOCASE'
     ).bind(link.disabled ? 0 : 1, id).run()
     // P-10 / B-12: Purge redirect cache (uses BASE_URL for the cache key so
     // staging / preview / future domain moves stay correct).
@@ -263,12 +266,12 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
     }
     if (domain !== null) {
       const existing = await c.env.DB.prepare(
-        'SELECT id FROM links WHERE custom_domain = ? AND id != ?'
+        'SELECT id FROM links WHERE custom_domain = ? AND id != ? COLLATE NOCASE'
       ).bind(domain, id).first()
       if (existing) return c.json({ error: 'Custom domain already in use by another link' }, 409)
     }
     await c.env.DB.prepare(
-      'UPDATE links SET custom_domain = ? WHERE id = ?'
+      'UPDATE links SET custom_domain = ? WHERE id = ? COLLATE NOCASE'
     ).bind(domain, id).run()
     return c.json({ success: true, custom_domain: domain })
   }
@@ -292,7 +295,7 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
     }
 
     const link = await c.env.DB.prepare(
-      'SELECT expires_at FROM links WHERE id = ?'
+      'SELECT expires_at FROM links WHERE id = ? COLLATE NOCASE'
     ).bind(id).first<{ expires_at: string | null }>()
     if (!link) return c.json({ error: 'Not found' }, 404)
 
@@ -301,7 +304,7 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
       : new Date()
     const newExpiry = new Date(base.getTime() + hours * 60 * 60 * 1000).toISOString()
     await c.env.DB.prepare(
-      'UPDATE links SET expires_at = ?, disabled = 0 WHERE id = ?'
+      'UPDATE links SET expires_at = ?, disabled = 0 WHERE id = ? COLLATE NOCASE'
     ).bind(newExpiry, id).run()
     return c.json({ success: true, expires_at: newExpiry })
   }
@@ -311,7 +314,7 @@ export async function updateLink(c: Context<{ Bindings: Env }>) {
 
 export async function deleteLink(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
-  const result = await c.env.DB.prepare('DELETE FROM links WHERE id = ?').bind(id).run()
+  const result = await c.env.DB.prepare('DELETE FROM links WHERE id = ? COLLATE NOCASE').bind(id).run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   // P-10 / B-12: Purge redirect cache for the deleted link (BASE_URL-keyed).
   await purgeRedirectCache(c.executionCtx, id, c.env.BASE_URL)
@@ -333,10 +336,11 @@ export async function bulkDeleteLinks(c: Context<{ Bindings: Env }>) {
     )
   }
 
-  // P-08/P-14: Single DELETE with IN clause instead of N batched statements
+  // P-08/P-14: Single DELETE with IN clause instead of N batched statements.
+  // S-21: `id COLLATE NOCASE` makes the IN match case-insensitive.
   const placeholders = ids.map(() => '?').join(', ')
   const result = await c.env.DB.prepare(
-    `DELETE FROM links WHERE id IN (${placeholders})`
+    `DELETE FROM links WHERE id COLLATE NOCASE IN (${placeholders})`
   ).bind(...ids).run()
   const deleted = result.meta.changes ?? ids.length
   // P-10 / B-12: Purge redirect cache for all deleted links (BASE_URL-keyed,
@@ -347,9 +351,13 @@ export async function bulkDeleteLinks(c: Context<{ Bindings: Env }>) {
 
 export async function getVariants(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
+  // S-21: resolve the stored id (case-insensitive) so the link_id filter
+  // matches rows written with the original casing.
+  const link = await c.env.DB.prepare('SELECT id FROM links WHERE id = ? COLLATE NOCASE').bind(id).first<{ id: string }>()
+  if (!link) return c.json([])
   const variants = await c.env.DB.prepare(
     'SELECT id, destination_url, weight FROM link_variants WHERE link_id = ?'
-  ).bind(id).all()
+  ).bind(link.id).all()
   return c.json(variants.results)
 }
 
@@ -362,11 +370,16 @@ export async function createVariant(c: Context<{ Bindings: Env }>) {
   if (!destination_url) return c.json({ error: 'destination_url required' }, 400)
   if (!isSafeUrl(destination_url)) return c.json({ error: 'Only http/https URLs are allowed' }, 400)
 
+  // S-21: write the variant against the STORED id so it joins correctly.
+  const link = await c.env.DB.prepare('SELECT id FROM links WHERE id = ? COLLATE NOCASE').bind(id).first<{ id: string }>()
+  if (!link) return c.json({ error: 'Not found' }, 404)
+  const linkId = link.id
+
   const variantId = generateId()
   await c.env.DB.prepare(
     'INSERT INTO link_variants (id, link_id, destination_url, weight) VALUES (?, ?, ?, ?)'
-  ).bind(variantId, id, destination_url, weight ?? 1).run()
-  return c.json({ id: variantId, link_id: id, destination_url, weight: weight ?? 1 })
+  ).bind(variantId, linkId, destination_url, weight ?? 1).run()
+  return c.json({ id: variantId, link_id: linkId, destination_url, weight: weight ?? 1 })
 }
 
 export async function deleteVariant(c: Context<{ Bindings: Env }>) {
@@ -456,9 +469,12 @@ export async function exportLinks(c: Context<{ Bindings: Env }>) {
 
 export async function getGeoRedirects(c: Context<{ Bindings: Env }>) {
   const { id } = c.req.param()
+  // S-21: resolve the stored id (case-insensitive) for the link_id filter.
+  const link = await c.env.DB.prepare('SELECT id FROM links WHERE id = ? COLLATE NOCASE').bind(id).first<{ id: string }>()
+  if (!link) return c.json([])
   const rows = await c.env.DB.prepare(
     'SELECT id, country_code, destination_url FROM geo_redirects WHERE link_id = ?'
-  ).bind(id).all()
+  ).bind(link.id).all()
   return c.json(rows.results)
 }
 
@@ -482,12 +498,17 @@ export async function createGeoRedirect(c: Context<{ Bindings: Env }>) {
     return c.json({ error: 'Only http/https URLs are allowed' }, 400)
   }
 
+  // S-21: write against the STORED id so the rule joins correctly on redirect.
+  const link = await c.env.DB.prepare('SELECT id FROM links WHERE id = ? COLLATE NOCASE').bind(id).first<{ id: string }>()
+  if (!link) return c.json({ error: 'Not found' }, 404)
+  const linkId = link.id
+
   const geoId = generateId()
   await c.env.DB.prepare(
     'INSERT INTO geo_redirects (id, link_id, country_code, destination_url) VALUES (?, ?, ?, ?)'
-  ).bind(geoId, id, code, destination_url).run()
+  ).bind(geoId, linkId, code, destination_url).run()
 
-  return c.json({ id: geoId, link_id: id, country_code: code, destination_url })
+  return c.json({ id: geoId, link_id: linkId, country_code: code, destination_url })
 }
 
 export async function deleteGeoRedirect(c: Context<{ Bindings: Env }>) {

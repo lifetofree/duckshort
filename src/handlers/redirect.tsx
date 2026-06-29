@@ -6,10 +6,14 @@ import {
   dispatchRedirect,
   tryReadRedirectCache,
   recordAnalyticsFromCacheHit,
+  normalizeLinkId,
 } from '../lib/redirectUtils'
 
 export async function redirectLink(c: Context<{ Bindings: Env }>) {
-  const { id } = c.req.param()
+  // S-21: normalise the id — strip a trailing slash so `VibeCoding-01/`
+  // resolves instead of falling through to the SPA shell. Case is preserved
+  // here; loadLinkRow + the cache key handle case-insensitivity.
+  const id = normalizeLinkId(c.req.param('id') ?? '')
 
   // 2.1: Cache hit path. Skip the D1 SELECT entirely; only the analytics
   // INSERT runs (in waitUntil) and the cached 302 returns. On a hot link

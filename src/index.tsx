@@ -18,7 +18,10 @@ import { rateLimit, type RateLimitBucket } from './middleware/rateLimit'
 import { resolveCustomDomain } from './middleware/customDomain'
 import { requireAuth, requireAuthFromContext, csrfTokensMatch } from './lib/auth'
 
-const app = new Hono<{ Bindings: Env }>()
+// strict: false so `/VibeCoding-01/` matches the `/:id` route instead of
+// falling through to the SPA shell catch-all (S-21). Without this, a
+// trailing-slash request returns the index.html shell (200, no redirect).
+const app = new Hono<{ Bindings: Env }>({ strict: false })
 
 // S-19: Defence-in-depth security headers on every Worker response. The Pages
 // site already sets these via `frontend/public/_headers`, but the Worker also
