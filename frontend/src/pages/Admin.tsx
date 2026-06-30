@@ -74,19 +74,15 @@ export default function AdminPage() {
 
   const fetchLinkStats = async (linkId: string, limit: number = statsLimit) => {
     try {
-      console.log('[DEBUG] fetchLinkStats called', { linkId, limit })
       const res = await fetch(`${API}/api/stats/${linkId}?limit=${limit}`)
-      console.log('[DEBUG] fetchLinkStats response', { ok: res.ok, status: res.status })
       if (res.ok) {
         const data = await res.json()
-        console.log('[DEBUG] fetchLinkStats data', JSON.stringify(data).slice(0, 100))
         setLinkStats(data)
-        console.log('[DEBUG] setLinkStats called with', typeof data)
       } else {
         console.error('Failed to fetch link stats', { status: res.status, statusText: res.statusText, url: `${API}/api/stats/${linkId}?limit=${limit}` })
       }
     } catch (err) {
-      console.error('[DEBUG] fetchLinkStats error', err)
+      console.error('Failed to fetch link stats', err)
     }
   }
 
@@ -264,9 +260,9 @@ export default function AdminPage() {
           fetchLinkStats={fetchLinkStats}
         />
 
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {tab === 'links' && (
-            <Suspense fallback={<TabFallback />}>
+            <Suspense key="links" fallback={<TabFallback />}>
               {loading && allLinks.length === 0 ? (
                 <Suspense fallback={<TabFallback />}>
                   <LinkTableSkeleton />
@@ -301,7 +297,7 @@ export default function AdminPage() {
           )}
 
           {tab === 'create' && (
-            <Suspense fallback={<TabFallback />}>
+            <Suspense key="create" fallback={<TabFallback />}>
               <LinkCreateForm onSuccess={() => {
                 setTab('links')
                 fetchLinks()
@@ -310,7 +306,7 @@ export default function AdminPage() {
           )}
 
           {tab === 'stats' && globalStats && (
-            <Suspense fallback={<TabFallback />}>
+            <Suspense key="stats" fallback={<TabFallback />}>
               <GlobalStatsView
                 globalStats={globalStats}
                 topLinks={topLinks}
@@ -323,8 +319,8 @@ export default function AdminPage() {
             </Suspense>
           )}
 
-          {tab === 'link-stats' && selectedLinkForStats && (console.log('[DEBUG] render check: tab=link-stats, selectedLinkForStats=', selectedLinkForStats, 'linkStats=', linkStats), true) && linkStats && (
-            <Suspense fallback={<TabFallback />}>
+          {tab === 'link-stats' && selectedLinkForStats && linkStats && (
+            <Suspense key="link-stats" fallback={<TabFallback />}>
               <PerLinkStatsView
                 selectedLinkForStats={selectedLinkForStats}
                 linkStats={linkStats}

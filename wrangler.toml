@@ -12,6 +12,9 @@ not_found_handling = "single-page-application"
 port = 8787
 local_protocol = "http"
 
+[dev.vars]
+BASE_URL = "http://localhost:8787"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "duckshort-db"
