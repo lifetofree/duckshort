@@ -7,6 +7,8 @@ import {
   tryReadRedirectCache,
   recordAnalyticsFromCacheHit,
   normalizeLinkId,
+  noStore,
+  privateShort,
 } from '../lib/redirectUtils'
 
 export async function redirectLink(c: Context<{ Bindings: Env }>) {
@@ -26,13 +28,17 @@ export async function redirectLink(c: Context<{ Bindings: Env }>) {
       c.req.header('referer'), c.req.header('user-agent'),
       cached.webhookUrl
     )
-    return c.redirect(cached.destination, 302)
+    // S-22: short private browser cache (see redirectUtils.privateShort).
+    return privateShort(c.redirect(cached.destination, 302))
   }
 
   const link = await loadLinkRow(c.env.DB, id)
 
   if (!link) {
-    return c.html(<NotFound message="LINK NOT FOUND" />, 404)
+    // S-22: never let a browser/QR-scanner cache the 404 page. iOS Safari and
+    // the iOS Camera scanner cache 404s by default and will keep showing the
+    // neon "LINK NOT FOUND" page even after the link is created/fixed.
+    return noStore(c.html(<NotFound message="LINK NOT FOUND" />, 404))
   }
 
   return dispatchRedirect(c, link)

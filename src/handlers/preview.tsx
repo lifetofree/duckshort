@@ -3,7 +3,7 @@ import type { Context } from 'hono'
 import type { Env } from '../types'
 import Preview from '../ui/pages/Preview'
 import NotFound from '../ui/pages/NotFound'
-import { normalizeLinkId } from '../lib/redirectUtils'
+import { normalizeLinkId, noStore } from '../lib/redirectUtils'
 
 export async function previewLink(c: Context<{ Bindings: Env }>) {
   const id = normalizeLinkId(c.req.param('id') ?? '')
@@ -15,14 +15,14 @@ export async function previewLink(c: Context<{ Bindings: Env }>) {
   ).bind(id).first<{ id: string; original_url: string; disabled: number; is_expired: number; og_title: string | null; og_description: string | null; og_image: string | null }>()
 
   if (!link || link.disabled) {
-    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
+    return noStore(c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404))
   }
 
   if (link.is_expired) {
-    return c.html(<NotFound message="LINK EXPIRED" />, 410)
+    return noStore(c.html(<NotFound message="LINK EXPIRED" />, 410))
   }
 
-  return c.html(
+  return noStore(c.html(
     <Preview
       id={link.id}
       destination={link.original_url}
@@ -30,5 +30,5 @@ export async function previewLink(c: Context<{ Bindings: Env }>) {
       ogDescription={link.og_description ?? undefined}
       ogImage={link.og_image ?? undefined}
     />
-  )
+  ))
 }

@@ -187,22 +187,23 @@ export async function dispatchRedirect(
   link: RedirectLinkRow
 ): Promise<Response> {
   if (link.disabled) {
-    return c.json({ error: 'Link disabled' }, 404)
+    return noStore(c.json({ error: 'Link disabled' }, 404))
   }
 
   if (link.is_expired) {
-    await c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ?').bind(link.id).run()
+    await c.env.DB.prepare('UPDATE links SET disabled = 1 WHERE id = ? COLLATE NOCASE').bind(link.id).run()
     await purgeRedirectCache(c.executionCtx, link.id, c.env.BASE_URL)
-    return c.json({ error: 'Link expired' }, 410)
+    return noStore(c.json({ error: 'Link expired' }, 410))
   }
 
   if (link.password_hash) {
-    return c.redirect(`/password/${link.id}`, 302)
+    // Password interstitial is per-link state; keep it private and short-lived.
+    return privateShort(c.redirect(`/password/${link.id}`, 302))
   }
 
   if (link.burn_on_read) {
     const burned = await handleBurnOnRead(c.env.DB, link.id)
-    if (!burned) return c.json({ error: 'Link disabled' }, 404)
+    if (!burned) return noStore(c.json({ error: 'Link disabled' }, 404))
     await purgeRedirectCache(c.executionCtx, link.id, c.env.BASE_URL)
   }
 
@@ -228,7 +229,51 @@ export async function dispatchRedirect(
 
   recordAnalytics(c.executionCtx, c.env.DB, link.id, country, referer, ua, link.webhook_url)
 
-  return c.redirect(destination, 302)
+  // S-22: short private browser cache on the 302. `private` keeps it out of
+  // shared proxies/CDNs (the destination can be admin-changed at any time via
+  // variants/geo/extend, and burn-on-read/disable must take effect promptly);
+  // max-age=300 is short enough that an admin change propagates within 5 min
+  // but long enough to speed up repeat clicks from the same browser (e.g. a
+  // user re-opening a bookmarked short URL).
+  return privateShort(c.redirect(destination, 302))
+}
+
+// S-22: Cache header helpers for redirect responses.
+//
+// iOS Safari and the iOS Camera QR scanner cache HTTP responses aggressively
+// and, unlike Chrome, they do NOT treat a missing Cache-Control as "do not
+// cache" — they cache 404/410 responses by default. Before these helpers
+// existed, a link that 404'd once (e.g. before a case-insensitivity fix, or
+// in the brief window before a newly-created link propagated) would keep
+// showing the cached neon 404 on iOS even after the server started returning
+// 302. `noStore` forces every error response to be re-fetched.
+//
+// Accepts Hono's `Response | Promise<Response>` return union so it can wrap
+// `c.html()` / `c.json()` / `c.redirect()` directly.
+export function noStore(res: Response | Promise<Response>): Response | Promise<Response> {
+  // `then` works for both sync (Response has no .then) and async (Promise);
+  // for a plain Response we mutate in place. We branch to keep the sync fast
+  // path zero-allocation.
+  if (res instanceof Promise) {
+    return res.then((r: Response) => {
+      r.headers.set('Cache-Control', 'no-store')
+      return r
+    })
+  }
+  res.headers.set('Cache-Control', 'no-store')
+  return res
+}
+
+// Short-lived, browser-only cache for successful redirects. See S-22 above.
+export function privateShort(res: Response | Promise<Response>): Response | Promise<Response> {
+  if (res instanceof Promise) {
+    return res.then((r: Response) => {
+      r.headers.set('Cache-Control', 'private, max-age=300')
+      return r
+    })
+  }
+  res.headers.set('Cache-Control', 'private, max-age=300')
+  return res
 }
 
 export async function resolveDestination(

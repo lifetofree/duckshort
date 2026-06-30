@@ -4,22 +4,22 @@ import type { Env, RedirectLinkRow } from '../types'
 import { verifyPassword } from '../lib/auth'
 import PasswordEntry from '../ui/pages/PasswordEntry'
 import NotFound from '../ui/pages/NotFound'
-import { loadLinkRow, resolveDestination, recordAnalytics, handleBurnOnRead, refererHostname, normalizeLinkId } from '../lib/redirectUtils'
+import { loadLinkRow, resolveDestination, recordAnalytics, handleBurnOnRead, refererHostname, normalizeLinkId, noStore, privateShort } from '../lib/redirectUtils'
 
 export async function showPasswordEntry(c: Context<{ Bindings: Env }>) {
   const id = normalizeLinkId(c.req.param('id') ?? '')
   const link = await loadLinkRow(c.env.DB, id)
 
   if (!link || link.disabled || !link.password_hash) {
-    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
+    return noStore(c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404))
   }
 
   if (link.is_expired) {
-    return c.html(<NotFound message="LINK EXPIRED" />, 410)
+    return noStore(c.html(<NotFound message="LINK EXPIRED" />, 410))
   }
 
   // Render the form with the stored id (preserves original casing in the URL).
-  return c.html(<PasswordEntry id={link.id} error={null} />)
+  return noStore(c.html(<PasswordEntry id={link.id} error={null} />))
 }
 
 export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
@@ -27,11 +27,11 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
   const link = await loadLinkRow(c.env.DB, id)
 
   if (!link || link.disabled || !link.password_hash) {
-    return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
+    return noStore(c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404))
   }
 
   if (link.is_expired) {
-    return c.html(<NotFound message="LINK EXPIRED" />, 410)
+    return noStore(c.html(<NotFound message="LINK EXPIRED" />, 410))
   }
 
   const body = await c.req.parseBody()
@@ -39,7 +39,7 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
 
   const valid = await verifyPassword(password, link.password_hash)
   if (!valid) {
-    return c.html(<PasswordEntry id={link.id} error="Incorrect password" />, 401)
+    return noStore(c.html(<PasswordEntry id={link.id} error="Incorrect password" />, 401))
   }
 
   // S-21: use the STORED id (link.id) for burn / analytics / destination
@@ -48,7 +48,7 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
   // Password verified — now handle burn-on-read + destination resolution + analytics
   if (link.burn_on_read) {
     const burned = await handleBurnOnRead(c.env.DB, link.id)
-    if (!burned) return c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404)
+    if (!burned) return noStore(c.html(<NotFound message="LINK NOT FOUND OR DISABLED" />, 404))
   }
 
   const country = (c.req.header('cf-ipcountry') || 'unknown').toUpperCase()
@@ -64,5 +64,5 @@ export async function verifyPasswordEntry(c: Context<{ Bindings: Env }>) {
 
   recordAnalytics(c.executionCtx, c.env.DB, link.id, country, referer, ua, link.webhook_url)
 
-  return c.redirect(destination, 302)
+  return privateShort(c.redirect(destination, 302))
 }
