@@ -94,3 +94,34 @@
   - Worker: `duckshort` v `f255e14b-0c79-4e88-a502-0cdded01c5aa` at `duckshort.cc/*`.
   - Pages: production `duckshort.pages.dev` updated (15 files re-uploaded, _redirects replaced).
 - **Notes**: First Pages deploy in this session accidentally targeted the `develop` Preview branch alias because the local checkout was on `develop`. Re-ran with `--branch main` to land on the production hostname. CI's `deploy-all.yml` does not currently include a Pages step — Pages is legacy and only updated manually. The `[dev.vars]` block in `wrangler.toml` is still ignored by wrangler 4.105.0 (warning only; production `BASE_URL` is unaffected).
+
+### 2026-06-30 13:00:00 - DevOps Fix: Worker/Pages Name Collision
+- **From**: User
+- **To**: DevOps
+- **Task**: Deploy to production; investigate resulting 301 self-loops on `duckshort.cc/*`.
+- **Findings**:
+  - Adding the Pages catch-all `_redirects` made `duckshort.cc/*` return 301 to itself for every path, including `/api/*` and `/<id>`. Pages was intercepting the Worker route.
+  - `pages.dev/*` continued to redirect to `cc/*` correctly (the intended behaviour).
+  - Removed the legacy `duckshort.cc` Pages custom domain (created 2026-04-16). Pages now lists only `duckshort.pages.dev` as a project domain.
+  - Even with the custom domain removed, Pages was still serving `duckshort.cc/*` (522 confirmed the Worker route was deleted at one point but Pages kept handling).
+  - **Root cause**: the Worker script and the Pages project were both named `duckshort`. Cloudflare's edge routing was resolving the Worker route `duckshort.cc/*` (with `script: "duckshort"`) to the Pages project instead of the Worker.
+- **Resolution**:
+  1. Renamed the Worker script in `wrangler.toml` from `duckshort` to `duckshort-api`.
+  2. Re-deployed — Worker route auto-updated to `duckshort.cc/* -> duckshort-api`.
+  3. Re-enabled the Pages catch-all `_redirects` (now safe: Pages only serves `duckshort.pages.dev`, where the catch-all forwards to `duckshort.cc/*` which the Worker handles correctly).
+- **Verified on production**:
+  - `duckshort.cc/` → 200 (SPA shell via `[assets]`).
+  - `duckshort.cc/jepYRdCN` → 302 → `https://example.com/test-404-debug`.
+  - `duckshort.cc/zzzunknown` → 404.
+  - `duckshort.cc/health` → `{status: ok, db: ok, rate_limiter: ok}`.
+  - `duckshort.pages.dev/jepYRdCN` → 301 → `duckshort.cc/jepYRdCN` → 302 → destination.
+  - `duckshort.pages.dev/` → 301 → `duckshort.cc/`.
+  - `/jepyrdcn/` and `/JEPYRDCN` → 302 (S-21 nocase + trailing slash still working).
+- **Deploys**:
+  - Worker: `duckshort-api` v `774bcc65-07e2-4986-927a-d230b35b7a92` at `duckshort.cc/*`.
+  - Pages: production `duckshort.pages.dev` redeployed (id `0f89ad7f`) with the catch-all `_redirects` re-enabled.
+- **Commit**: `aba3781 fix(infra): rename Worker script to duckshort-api to avoid Pages name collision`.
+- **Open follow-ups** (not addressed in this hotfix):
+  - CI (`deploy-all.yml`) does not include a Pages step. Pages is updated manually only.
+  - The `[dev.vars]` block in `wrangler.toml` is still ignored by wrangler 4.105.0 (warning only; production `BASE_URL` is unaffected).
+  - The `purgeRedirectCache` bug (`id.toLowerCase()` mismatch with the cache write key) is still latent and would cause cache-not-evicted-after-admin-toggle.
