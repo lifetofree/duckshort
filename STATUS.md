@@ -125,3 +125,61 @@
   - CI (`deploy-all.yml`) does not include a Pages step. Pages is updated manually only.
   - The `[dev.vars]` block in `wrangler.toml` is still ignored by wrangler 4.105.0 (warning only; production `BASE_URL` is unaffected).
   - The `purgeRedirectCache` bug (`id.toLowerCase()` mismatch with the cache write key) is still latent and would cause cache-not-evicted-after-admin-toggle.
+
+### 2026-06-30 13:14:00 - DevOps: Resolve the Three Open Follow-ups
+- **From**: User
+- **To**: DevOps
+- **Task**: Address the three open follow-ups from the previous hotfix session.
+
+#### Fix #3 — `purgeRedirectCache` lowercases the id (TDD)
+- Two failing tests added to `test/handlers/low-priority.test.ts` (one with explicit `baseUrl`, one default) verifying `purgeRedirectCache` produces the same lowercased cache key as `cacheKey()`.
+- `src/lib/redirectUtils.ts` — `purgeRedirectCache` now applies `id.toLowerCase()` so admin toggle/delete/extend correctly evict the cached 302 even when the stored link id is mixed-case (S-21). Locked in by the new tests. Backend suite: 281 → 283 passing.
+
+#### Fix #2 — Remove dead `[dev.vars]` block
+- `wrangler.toml` — deleted the `[dev.vars]` block. wrangler 4.105.0 emits "Unexpected fields found in dev field: vars" on every deploy and silently ignores the values. `.dev.vars` (gitignored) already provides `BASE_URL=https://duckshort.cc` for local dev. After this change, `wrangler deploy` no longer prints the warning.
+
+#### Fix #1 — Pages step in CI
+- `.github/workflows/deploy-all.yml` — added `npx wrangler pages deploy frontend/dist --project-name duckshort --branch main --commit-dirty=true` after the Worker deploy. The Pages project is the legacy `duckshort.pages.dev` alias and must stay in sync with the Worker build so the catch-all `_redirects` reflects the latest commit.
+
+#### Deploys (round 1)
+- Worker: `duckshort-api` v `6cb046a4-fe31-4b5d-b5a1-13ea7c7a1c8b` at `duckshort.cc/*`.
+- Pages: production `061e2718` (catch-all `_redirects` enabled).
+- All smoke tests passed.
+
+#### Commit
+- `2ca80f6 fix(infra): purgeRedirectCache lowercases id; remove dead [dev.vars]; add Pages to CI` (4 files, 41 +/3 −).
+
+### 2026-06-30 13:24:00 - DevOps: Replace `_redirects` with Pages Function (break Worker self-loop)
+- **From**: DevOps (self)
+- **To**: User
+- **Task**: Re-deploy to production; observed 301 self-loops on every `duckshort.cc/*` path again, despite the Worker rename.
+
+- **Findings**:
+  - The catch-all `_redirects` rule (`/* https://duckshort.cc/:splat 301`) was being applied by Workers Static Assets to Worker-served requests as well as Pages-served ones. The `_redirects` file lives in `frontend/dist/` and Workers Static Assets bundles the entire dist, so the catch-all fired on `duckshort.cc/*` too — pointing back to itself.
+  - This is independent of the Worker/Pages name collision that we fixed earlier (rename `duckshort` → `duckshort-api`). The collision made the routing look like Pages was handling cc, but the underlying issue was that Workers Static Assets was processing the `_redirects` rules regardless.
+  - Confirmed by deleting the Worker route entirely: response went 301 → 522 (no origin), proving Pages was never the responder — Workers Static Assets was applying the rule from the dist.
+
+- **Resolution**:
+  1. Deleted `frontend/public/_redirects` so the dist no longer contains a `_redirects` file. Workers Static Assets now has no catch-all rule to misapply.
+  2. Added `functions/_middleware.js` at the project root (Pages Functions deploy from `<project>/functions/`, not `frontend/functions/`). The Function checks `context.request.url`'s hostname and 301s only when it is `duckshort.pages.dev`; otherwise calls `context.next()`.
+  3. Rebuilt, re-deployed Worker (`82580a29`), re-deployed Pages (`b53a3ce5`). The Pages deploy log now shows "✨ Uploading Functions bundle", confirming the Function was picked up.
+
+- **Verified end-to-end on production**:
+  - `duckshort.cc/` → 200 (SPA shell via `[assets]`).
+  - `duckshort.cc/mYgd2JYO` → 302 → `https://example.com/post-rename-test`.
+  - `duckshort.cc/zzzunknown` → 404.
+  - `duckshort.cc/health` → `{db: ok, rate_limiter: ok}`.
+  - `duckshort.cc/mygd2jyo/` → 302 (S-21 nocase + trailing slash).
+  - `duckshort.cc/MYGD2JYO` → 302 (S-21 nocase).
+  - `duckshort.pages.dev/` → 301 → `https://duckshort.cc/`.
+  - `duckshort.pages.dev/mYgd2JYO` → 301 → `https://duckshort.cc/mYgd2JYO`.
+  - `duckshort.pages.dev/zzzunknown` → 301 → `https://duckshort.cc/zzzunknown`.
+  - Full chain `pages.dev/<id> → cc/<id> → 302 → destination` resolves correctly.
+
+- **Deploys**:
+  - Worker: `duckshort-api` v `82580a29-ad54-4737-a1b4-4a0788ee98aa` at `duckshort.cc/*`.
+  - Pages: production `b53a3ce5` with `functions/_middleware.js` deployed (visible in deploy log: "Uploading Functions bundle").
+
+- **Commit**: `19dd937 fix(infra): replace _redirects with Pages Function to break Worker self-loop`.
+
+- **No remaining open follow-ups.** All three items previously flagged are resolved and verified on production.
