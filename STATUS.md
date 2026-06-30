@@ -75,3 +75,22 @@
   - Corrected `home.shortenForm.errors.invalidCustomId` EN copy ("3-50" → "3-20" characters) to match `CUSTOM_ID_REGEX`.
   - Rewrote the i18n fallback test to use a key absent from both dictionaries instead of the removed dead key.
   - Corrected the inaccurate "100% coverage" claim in `docs/REVIEWS.md`. The "144 tests" claim was re-verified as accurate (initial re-count had undercounted by missing `QuackCounter.test.tsx`).
+
+### 2026-06-30 12:13:00 - DevOps Hotfix: Legacy Pages Hostname 404
+- **From**: User
+- **To**: DevOps
+- **Task**: Investigate 404 reported when opening a generated short link.
+- **Findings**:
+  - Worker at `duckshort.cc/<id>` returns 302 correctly for all case/trailing-slash/iOS UA variations; freshly generated link verified end-to-end.
+  - Root cause: the legacy Pages hostname `duckshort.pages.dev/<id>` was returning the SPA shell (HTTP 200) and React Router's `*` route rendered the in-app 404. The Worker route only matches `duckshort.cc/*`, so the redirect logic never ran on Pages.
+  - `www.duckshort.cc/<id>` also fails (522) — host is not on the Worker route.
+- **Resolution**: Added `frontend/public/_redirects` catch-all `/* https://duckshort.cc/:splat 301` and redeployed Pages with `--branch main`.
+- **Verified**:
+  - `pages.dev/jepYRdCN` → 301 → `cc/jepYRdCN` → 302 → destination.
+  - `pages.dev/zzzunknown` → 301 → `cc/zzzunknown` → 404 (worker).
+  - `pages.dev/` → 301 → `cc/`.
+- **Commits**: `66405ff chore(devops): tidy Admin debug logs/Suspense keys + wrangler dev vars`; `18466dc fix(pages): 301 legacy duckshort.pages.dev traffic to duckshort.cc`.
+- **Deploys**:
+  - Worker: `duckshort` v `f255e14b-0c79-4e88-a502-0cdded01c5aa` at `duckshort.cc/*`.
+  - Pages: production `duckshort.pages.dev` updated (15 files re-uploaded, _redirects replaced).
+- **Notes**: First Pages deploy in this session accidentally targeted the `develop` Preview branch alias because the local checkout was on `develop`. Re-ran with `--branch main` to land on the production hostname. CI's `deploy-all.yml` does not currently include a Pages step — Pages is legacy and only updated manually. The `[dev.vars]` block in `wrangler.toml` is still ignored by wrangler 4.105.0 (warning only; production `BASE_URL` is unaffected).
