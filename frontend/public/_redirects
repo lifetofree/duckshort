@@ -1,2 +1,14 @@
 # All routing is handled by the Worker (src/index.tsx).
 # SPA fallback is handled by wrangler.toml not_found_handling = "single-page-application".
+#
+# Catch-all: any path hit on the legacy Pages hostname (duckshort.pages.dev)
+# is 301'd to the canonical Worker hostname (duckshort.cc). The Worker at
+# duckshort.cc serves API + redirect + SPA + assets via Workers Static Assets,
+# so this redirect is lossless — every request still resolves to the right
+# destination. Without this, /<short-id> on pages.dev returned the SPA shell
+# (HTTP 200) which then rendered the in-app 404 because the React Router `*`
+# route has no idea about short links.
+#
+# `/*` matches every path (including `/`). `:splat` re-uses the matched
+# path so `/jepYRdCN` becomes `https://duckshort.cc/jepYRdCN`.
+/* https://duckshort.cc/:splat 301
