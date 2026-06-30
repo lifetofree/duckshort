@@ -176,7 +176,7 @@ describe('I18nProvider — locale switching & persistence', () => {
 
   it('correctly loads dictionary for active locale', () => {
     function TestComponent() {
-      const { locale, setLocale, t } = useTranslation() as any
+      const { setLocale, t } = useTranslation() as any
       return (
         <div>
           <span data-testid="text">{t('common.loading')}</span>
