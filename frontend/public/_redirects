@@ -11,4 +11,11 @@
 #
 # `/*` matches every path (including `/`). `:splat` re-uses the matched
 # path so `/jepYRdCN` becomes `https://duckshort.cc/jepYRdCN`.
+#
+# The Worker script was renamed from `duckshort` to `duckshort-api` to avoid
+# a name collision with this Pages project — Cloudflare's edge was resolving
+# the Worker route `duckshort.cc/*` to the Pages project because both shared
+# the name `duckshort`. Now only the Worker serves `duckshort.cc/*`; Pages
+# serves only `duckshort.pages.dev/*`, so this catch-all only fires on the
+# legacy alias and never loops.
 /* https://duckshort.cc/:splat 301
