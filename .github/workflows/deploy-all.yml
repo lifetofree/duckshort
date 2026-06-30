@@ -55,3 +55,11 @@ jobs:
 
       - name: Deploy worker (with static assets)
         run: npx wrangler deploy
+
+      # Pages is the legacy duckshort.pages.dev hostname. The Worker at
+      # duckshort.cc bundles the SPA via `[assets]`, so Pages only exists to
+      # serve the legacy alias and 301 unknown paths to the Worker hostname
+      # (see frontend/public/_redirects). Deploying after the Worker keeps
+      # the legacy URL in sync with the latest build.
+      - name: Deploy Pages (legacy duckshort.pages.dev alias)
+        run: npx wrangler pages deploy frontend/dist --project-name duckshort --branch main --commit-dirty=true

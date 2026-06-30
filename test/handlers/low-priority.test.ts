@@ -68,6 +68,29 @@ describe('B-12: purgeRedirectCache uses the supplied baseUrl', () => {
     expect(captured).toBe('https://duckshort.cc/__redirect_cache__/legacy')
   })
 
+  // S-21: The redirect cache write key is lower-cased (see `cacheKey` in
+  // redirectUtils). purgeRedirectCache MUST use the same casing so admin
+  // toggle/delete/extend actually evict the cached entry. Without this,
+  // a request that warms the cache under one casing would survive an
+  // admin toggle/delete when the link id differs in case from the cache
+  // key — the cache would keep returning the old destination until its
+  // 24h TTL expired.
+  it('lowercases the id segment so it matches the cache write key (S-21)', async () => {
+    const ctx = { waitUntil: () => { /* no-op */ } } as unknown as ExecutionContext
+    const captured = await withDeleteSpy(() => {
+      void purgeRedirectCache(ctx, 'VibeCoding-01', 'https://duckshort.cc')
+    })
+    expect(captured).toBe('https://duckshort.cc/__redirect_cache__/vibecoding-01')
+  })
+
+  it('lower-cases the id when baseUrl is omitted', async () => {
+    const ctx = { waitUntil: () => { /* no-op */ } } as unknown as ExecutionContext
+    const captured = await withDeleteSpy(() => {
+      void purgeRedirectCache(ctx, 'MixedCase')
+    })
+    expect(captured).toBe('https://duckshort.cc/__redirect_cache__/mixedcase')
+  })
+
   it('admin toggle / delete / bulk-delete pass c.env.BASE_URL as the cache origin', async () => {
     await seedLink('b12-1')
     await seedLink('b12-2')

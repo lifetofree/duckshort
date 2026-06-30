@@ -417,12 +417,18 @@ export function isSafeWebhookUrl(url: string): boolean {
 // B-12: accept the cache origin as a parameter so staging / preview / future
 // domain moves use the right cache key. Defaults to BASE_URL (or
 // `https://duckshort.cc`) so callers in tests don't need to thread it.
+//
+// S-21: the id segment is lower-cased so the cache.delete URL matches the
+// cache.write key produced by `cacheKey()` (which also lower-cases the id).
+// Without this, admin toggle/delete/extend would fail to evict a cached
+// redirect whose id differs in case from the stored link row, and the
+// stale 302 would survive until its 24h TTL expired.
 export async function purgeRedirectCache(
   ctx: MiniExecutionContext,
   id: string,
   baseUrl: string = 'https://duckshort.cc'
 ): Promise<void> {
-  const cacheUrl = `${baseUrl.replace(/\/+$/, '')}/__redirect_cache__/${id}`
+  const cacheUrl = `${baseUrl.replace(/\/+$/, '')}/__redirect_cache__/${id.toLowerCase()}`
   ctx.waitUntil(
     (caches as unknown as { default: Cache }).default.delete(new Request(cacheUrl, { method: 'GET' }))
   )
