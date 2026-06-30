@@ -208,9 +208,27 @@ app.get('/api/links/:id/geo-redirects', getGeoRedirects)
 app.post('/api/links/:id/geo-redirects', createGeoRedirect)
 app.delete('/api/links/geo-redirects/:geoId', deleteGeoRedirect)
 
+// Helper: serve a static asset and strip CDN cacheability from HTML responses.
+// Workers Static Assets sets `public, max-age=0, must-revalidate` on every
+// file, which Cloudflare's CDN edge caches aggressively. For HTML pages (the
+// SPA shell and its SPA-fallback copies served at arbitrary paths) we override
+// to `private, no-store` so the CDN never caches them and every navigation
+// request reaches the Worker — essential for short-link redirects to work.
+// JS/CSS/image assets keep the default public caching header.
+async function serveSPA(c: Context<{ Bindings: Env }>): Promise<Response> {
+  const res = await c.env.ASSETS.fetch(c.req.raw)
+  const ct = res.headers.get('Content-Type') ?? ''
+  if (ct.startsWith('text/html')) {
+    const headers = new Headers(res.headers)
+    headers.set('Cache-Control', 'private, no-store')
+    return new Response(res.body, { status: res.status, headers })
+  }
+  return res
+}
+
 // Frontend routes - served via Workers Static Assets (must come BEFORE /:id)
-app.get('/', (c) => c.env.ASSETS.fetch(c.req.raw))
-app.get('/admin', (c) => c.env.ASSETS.fetch(c.req.raw))
+app.get('/', (c) => serveSPA(c))
+app.get('/admin', (c) => serveSPA(c))
 
 // Preview and password entry pages
 app.get('/preview/:id', previewLink)
@@ -227,8 +245,8 @@ app.get('/health', health)
 // not locked out by normal click traffic.
 app.get('/:id', redirectRateLimit, redirectLink)
 
-// Catch-all — serves JS/CSS bundles and any other static assets
-app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw))
+// Catch-all — serves JS/CSS bundles and the SPA fallback for unknown paths
+app.all('*', (c) => serveSPA(c))
 
 export { RateLimiter } from './durableObjects/RateLimiter'
 
