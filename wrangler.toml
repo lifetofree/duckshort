@@ -7,6 +7,14 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./frontend/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+# S-23: run_worker_first ensures the Worker handles EVERY request before the
+# Static Assets layer. Without this, Cloudflare can serve the SPA index.html
+# directly from the asset store for short-link paths (e.g. /th6040), bypassing
+# the Worker's /:id redirect entirely — the browser gets the cached SPA shell,
+# React Router renders "PAGE NOT FOUND", and the link appears broken even
+# though the redirect logic is correct. This is also why the root served
+# `public, max-age=0` instead of serveSPA's `private, no-store` header.
+run_worker_first = true
 
 [dev]
 port = 8787
